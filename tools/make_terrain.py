@@ -74,6 +74,7 @@ def main():
     py = (n - lat) / (n - s) * dh - 0.5
     PX, PY = np.meshgrid(px, py)
     ground = bilinear(dem, PX, PY)  # metres, [nz, nx]
+    bare = ground.copy()  # the ground before any carving, for sampling heights
 
     def grid_xy(lat_, lon_):
         mx, mz = to_m(lat_, lon_)
@@ -90,6 +91,7 @@ def main():
     wd, idr = ImageDraw.Draw(water_img), ImageDraw.Draw(island_img)
     wood_img, sand_img, park_img = mask(), mask(), mask()
     road_img, path_img, creek_img = mask(), mask(), mask()
+    bridges, steps = [], []
     weir_img = mask()
     for el in osm:
         t = el.get("tags", {})
@@ -114,6 +116,10 @@ def main():
                 line(weir_img, g, 1.5)
             elif t.get("waterway") in ("stream", "river", "ditch") and t.get("tunnel") is None:
                 line(creek_img, g, CREEK_WIDTH / cell_m)
+            elif "highway" in t and t.get("bridge") == "yes":
+                bridges.append((el, t))
+            elif t.get("highway") == "steps" and t.get("tunnel") is None:
+                steps.append((el, t))
             elif "highway" in t and t.get("bridge") is None and t.get("tunnel") is None:
                 hw = t["highway"]
                 if hw in ROAD_WIDTH:
@@ -165,6 +171,75 @@ def main():
     mat[pond] = "m"
     mat[creek] = "r"
     mat[weir] = "r"
+
+    # Smooth the ground under paths and roads, so they're walkable, not
+    # every lidar bump: a few passes of averaging among path cells only.
+    paved = ((np.array(road_img) > 127) | (np.array(path_img) > 127)) & np.isnan(water_top)
+    for _ in range(4):
+        pad = np.pad(ground, 1, mode="edge")
+        mean = sum(pad[1 + dy:1 + dy + ground.shape[0], 1 + dx:1 + dx + ground.shape[1]]
+                   for dy in (-1, 0, 1) for dx in (-1, 0, 1)) / 9
+        ground = np.where(paved, mean, ground)
+
+    # Bridges and steps, for the Paths builder: points in studs, heights in
+    # studs above Y = 0, from the bare ground.
+    def sample(lat_, lon_):
+        gx, gz = grid_xy(lat_, lon_)
+        i = int(np.clip(round(gz - 0.5), 0, nz - 1))
+        j = int(np.clip(round(gx - 0.5), 0, nx - 1))
+        return bare[i, j]
+    def studs(p):
+        mx, mz = to_m(p["lat"], p["lon"])
+        return mx / M_PER_STUD, mz / M_PER_STUD
+    def outward(g, end, metres):
+        # A point `metres` past the end of the way, along its last leg.
+        a, b = (g[-2], g[-1]) if end else (g[1], g[0])
+        return {"lat": b["lat"] + (b["lat"] - a["lat"]) * metres / max(leg(a, b), 0.1),
+                "lon": b["lon"] + (b["lon"] - a["lon"]) * metres / max(leg(a, b), 0.1)}
+    def leg(a, b):
+        return np.hypot((b["lat"] - a["lat"]) * M_PER_DEG_LAT, (b["lon"] - a["lon"]) * M_PER_DEG_LON)
+    features = {"bridges": [], "steps": []}
+    for el, t in bridges:
+        g = el["geometry"]
+        # Only bridges over water the model has: one over a creek OSM runs
+        # underground here would sit buried in a hump of ground.
+        under = [grid_xy(p["lat"], p["lon"]) for p in g]
+        wet = False
+        for (ax, az), (bx, bz) in zip(under, under[1:]):
+            for f in np.linspace(0, 1, 12):
+                i, j = int(az + (bz - az) * f), int(ax + (bx - ax) * f)
+                if 0 <= i < nz and 0 <= j < nx and (np.isfinite(water_top[i, j]) or creek[i, j]):
+                    wet = True
+        if not wet:
+            print("  skipped a bridge with no water under it:", t.get("name") or t["highway"], el["id"])
+            continue
+        ends = [max(sample(g[0]["lat"], g[0]["lon"]), sample(*outward(g, False, 2).values())),
+                max(sample(g[-1]["lat"], g[-1]["lon"]), sample(*outward(g, True, 2).values()))]
+        # The deck clears the ground everywhere along it, not just at its ends.
+        along_max = max(sample(g[k]["lat"] + (g[k + 1]["lat"] - g[k]["lat"]) * f,
+                               g[k]["lon"] + (g[k + 1]["lon"] - g[k]["lon"]) * f)
+                        for k in range(len(g) - 1) for f in np.linspace(0, 1, 12))
+        ends = [max(h, along_max + 0.15) for h in ends]
+        road = t["highway"] in ROAD_WIDTH
+        features["bridges"].append({
+            "kind": "road" if road else "foot",
+            "name": t.get("name", ""),
+            "width": (ROAD_WIDTH[t["highway"]] if road else 3.0) / M_PER_STUD,
+            "points": [studs(p) for p in g],
+            "ends": [(h - BASE_M) / M_PER_STUD for h in ends],
+        })
+    for el, t in steps:
+        g = el["geometry"]
+        a, b = sample(g[0]["lat"], g[0]["lon"]), sample(g[-1]["lat"], g[-1]["lon"])
+        features["steps"].append({
+            "surface": t.get("surface", "concrete"),
+            "count": int(t["step_count"]) if t.get("step_count", "").isdigit() else 0,
+            "handrail": t.get("handrail") == "yes",
+            "points": [studs(p) for p in g],
+            "ends": [(a - BASE_M) / M_PER_STUD, (b - BASE_M) / M_PER_STUD],
+        })
+    (OUT / "Features.lua").write_text("-- Written by tools/make_terrain.py; don't edit by hand.\nreturn "
+                                      + lua(features) + "\n")
 
     # Where a player starts: on the path nearest the pond's middle, facing it.
     paths = np.argwhere((mat == "p") & np.isnan(water_top))
@@ -224,6 +299,23 @@ def bilinear(img, x, y):
 
 def line(img, points, width_cells):
     ImageDraw.Draw(img).line(points, fill=255, width=max(1, int(round(width_cells))), joint="curve")
+
+
+def lua(v, indent=0):
+    pad = "\t" * (indent + 1)
+    if isinstance(v, dict):
+        return "{\n" + "".join(f"{pad}{k} = {lua(x, indent + 1)},\n" for k, x in v.items()) + "\t" * indent + "}"
+    if isinstance(v, (list, tuple)):
+        if all(isinstance(x, (int, float, np.floating)) for x in v):
+            return "{ " + ", ".join(lua(x) for x in v) + " }"
+        return "{\n" + "".join(f"{pad}{lua(x, indent + 1)},\n" for x in v) + "\t" * indent + "}"
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, (int, np.integer)):
+        return str(int(v))
+    if isinstance(v, (float, np.floating)):
+        return f"{float(v):.2f}"
+    return '"' + str(v).replace('"', '\\"') + '"'
 
 
 def dilate(m, n):

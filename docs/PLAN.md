@@ -2,7 +2,7 @@
 
 1. **Terrain** -- real ground shape at real scale, grass, the ponds and creek
    as water, the islands, the weir. Paths and roads painted on.
-2. **Paths and bridges** -- proper path surfaces, steps, the Duck Pond Drive
+2. **Paths and bridges** (first pass done: the five bridges and 13 flights of steps from OSM, smoothed path ground; looks guessed) -- proper path surfaces, steps, the Duck Pond Drive
    bridge and the footbridges.
 3. **Trees and plantings** -- the mapped trees, plus the canopy seen in the
    aerial photo (the south and east banks are dense and mostly unmapped).
