@@ -44,7 +44,7 @@ POND_MAX_DEPTH = 2.0  # m
 CREEK_WIDTH = 3.0  # m
 CREEK_CUT = 0.6  # m below the ground the bed goes
 ROAD_WIDTH = {"tertiary": 8, "secondary": 9, "unclassified": 6, "residential": 6, "service": 4}
-PATH_WIDTH = 2.4  # m
+PATH_WIDTH = 3.2  # m: a touch wide, so a 1.1 m voxel grid draws it unbroken
 B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
 

@@ -125,11 +125,11 @@ function Terrain.build()
 	terrain.WaterReflectance = 0.6
 	terrain.WaterWaveSize = 0.04
 	terrain.WaterWaveSpeed = 4
-	terrain.Decoration = true
 	terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(96, 140, 64))
 	terrain:SetMaterialColor(Enum.Material.LeafyGrass, Color3.fromRGB(78, 118, 56))
 	terrain:SetMaterialColor(Enum.Material.Pavement, Color3.fromRGB(156, 150, 140))
 	terrain:SetMaterialColor(Enum.Material.Mud, Color3.fromRGB(96, 80, 58))
+	terrain:SetMaterialColor(Enum.Material.Sand, Color3.fromRGB(196, 174, 128))
 
 	-- Where players arrive: a path by the water.
 	local spawn = workspace:FindFirstChild("SpawnLocation") or Instance.new("SpawnLocation")
