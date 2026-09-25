@@ -1,0 +1,12 @@
+Reference photos from Wikimedia Commons (not used in the game).
+
+01_Chinese_geese_blacksburg_jpg.jpg: File:Chinese geese blacksburg.jpg -- HaganPhoto, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Chinese_geese_blacksburg.jpg
+02_Dam_on_Stroubles_Creek_Forming_Part_of_the_Virgini.jpg: File:Dam on Stroubles Creek Forming Part of the Virginia Tech Duck Pond in Blacksburg, Virginia.jpg -- Sarajevo Sandwich Society, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Dam_on_Stroubles_Creek_Forming_Part_of_the_Virginia_Tech_Duck_Pond_in_Blacksburg,_Virginia.jpg
+03_Stroubles_Creek_1_jpg.jpg: File:Stroubles Creek 1.jpg -- Vejlenser, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Stroubles_Creek_1.jpg
+04_Stroubles_Creek_2_jpg.jpg: File:Stroubles Creek 2.jpg -- Vejlenser, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Stroubles_Creek_2.jpg
+05_Virginia_Tech_Duck_Pond_in_Blacksburg_Virginia_jpg.jpg: File:Virginia Tech Duck Pond in Blacksburg, Virginia.jpg -- Sarajevo Sandwich Society, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Virginia_Tech_Duck_Pond_in_Blacksburg,_Virginia.jpg
+06_Virginia_Tech_duck_pond_12349758334_jpg.jpg: File:Virginia Tech duck pond (12349758334).jpg -- Ben Schumin from Montgomery Village, Maryland, USA, CC BY-SA 2.0, https://commons.wikimedia.org/wiki/File:Virginia_Tech_duck_pond_(12349758334).jpg
+07_Virginia_tech_winter_duck_pond_bridge_jpg.jpg: File:Virginia tech winter duck pond bridge.jpg -- Marapg at English Wikipedia, Public domain, https://commons.wikimedia.org/wiki/File:Virginia_tech_winter_duck_pond_bridge.jpg
+08_Duckpond_Virginia_Tech_JPG.jpg: File:Duckpond Virginia Tech.JPG -- Eric T Gunther, CC BY 3.0, https://commons.wikimedia.org/wiki/File:Duckpond_Virginia_Tech.JPG
+09_Solitude_building_winter_2012_JPG.jpg: File:Solitude building, winter 2012.JPG -- Quentin Stoeffler, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Solitude_building,_winter_2012.JPG
+10_Virginia_Tech_s_Solitude_jpg.jpg: File:Virginia Tech's Solitude.jpg -- Kenneth Novy, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Virginia_Tech%27s_Solitude.jpg

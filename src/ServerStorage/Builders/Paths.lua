@@ -6,10 +6,14 @@
 
 		require(game.ServerStorage.Builders.Paths).build()
 
-	What they look like is a guess for now, to be put right on visits:
+	What they look like, from reference photos (data/photos, Wikimedia
+	Commons) where there are any, and guesses where not:
+	  footbridges   rustic: a dark timber deck, log posts and rails, braces
+	                (the winter bridge photo)
+	  weir          a stepped concrete cascade, the water in tiers (the dam
+	                photo)
 	  road bridges  Duck Pond Drive: an asphalt deck between Hokie Stone
-	                parapets (Virginia Tech's grey limestone)
-	  footbridges   concrete decks, a gentle arch, dark metal railings
+	                parapets -- a guess
 	  steps         concrete, or timber-edged grass where OSM says grass
 ]]
 
@@ -23,6 +27,7 @@ local ASPHALT = Color3.fromRGB(62, 62, 66)
 local RAIL = Color3.fromRGB(38, 40, 44)
 local TIMBER = Color3.fromRGB(110, 84, 58)
 local GRASS = Color3.fromRGB(96, 140, 64)
+local OLD_TIMBER = Color3.fromRGB(66, 56, 44) -- weathered, nearly black when wet
 
 local function part(parent, name, size, cframe, colour, material, props)
 	local p = Instance.new("Part")
@@ -103,8 +108,8 @@ local function bridge(parent, spec)
 	local total, at = along(spec.points, math.max(spec.ends[1], groundY(endA) + 0.2),
 		math.max(spec.ends[2], groundY(endB) + 0.2))
 	local steps = math.max(2, math.ceil((total + over * 2) / 6))
-	local deckColour = if road then ASPHALT else CONCRETE
-	local deckMaterial = if road then Enum.Material.Asphalt else Enum.Material.Concrete
+	local deckColour = if road then ASPHALT else OLD_TIMBER
+	local deckMaterial = if road then Enum.Material.Asphalt else Enum.Material.WoodPlanks
 	local previous = nil
 	for i = 0, steps do
 		local d = -over + (total + over * 2) * i / steps
@@ -127,14 +132,18 @@ local function bridge(parent, spec)
 					slab(model, "Parapet", previous.p + off + lift, p + off + lift, 1.6, 4.8, HOKIE_STONE,
 						Enum.Material.Slate)
 				else
-					-- A post, and the top rail to the next one.
+					-- A log post, a log top rail and a lower rail to the next
+					-- one, and a brace from the post's foot outward.
 					local foot = previous.p + off
-					part(model, "Post", Vector3.new(0.3, 3.4, 0.3), CFrame.new(foot + Vector3.new(0, 1.7, 0)), RAIL,
-						Enum.Material.Metal)
-					slab(model, "Rail", foot + Vector3.new(0, 3.4, 0), p + off + Vector3.new(0, 3.4, 0), 0.3, 0.3,
-						RAIL, Enum.Material.Metal)
-					slab(model, "MidRail", foot + Vector3.new(0, 1.8, 0), p + off + Vector3.new(0, 1.8, 0), 0.15, 0.15,
-						RAIL, Enum.Material.Metal)
+					part(model, "Post", Vector3.new(0.9, 3.6, 0.9), CFrame.new(foot + Vector3.new(0, 1.8, 0)),
+						OLD_TIMBER, Enum.Material.Wood)
+					slab(model, "Rail", foot + Vector3.new(0, 3.7, 0), p + off + Vector3.new(0, 3.7, 0), 0.8, 0.7,
+						OLD_TIMBER, Enum.Material.Wood)
+					slab(model, "LowRail", foot + Vector3.new(0, 1.9, 0), p + off + Vector3.new(0, 1.9, 0), 0.6, 0.5,
+						OLD_TIMBER, Enum.Material.Wood)
+					local out = side * s * 1.6
+					slab(model, "Brace", foot + Vector3.new(0, 2.6, 0), foot + out + Vector3.new(0, -0.6, 0), 0.5, 0.5,
+						OLD_TIMBER, Enum.Material.Wood)
 				end
 			end
 		end
@@ -197,6 +206,45 @@ local function stairs(parent, spec)
 	return model
 end
 
+-- The weir: steps of concrete from the upper pond's level down to the
+-- lower's, each a block along the weir's line, set back downstream in turn,
+-- with walls at either end.
+local function weir(parent, spec)
+	local model = Instance.new("Model")
+	model.Name = "Weir"
+	model.Parent = parent
+	local down = Vector3.new(spec.downstream[1], 0, spec.downstream[2])
+	local a = Vector3.new(spec.points[1][1], 0, spec.points[1][2])
+	local b = Vector3.new(spec.points[#spec.points][1], 0, spec.points[#spec.points][2])
+	local length = (b - a).Magnitude
+	local centre = (a + b) / 2
+	local facing = CFrame.lookAt(centre, centre + down) -- -Z downstream, X along the weir
+	local steps, depth = 4, 3.2
+	local drop = (spec.upper - spec.lower + 1) / steps
+	local bottom = spec.lower - 5
+	for k = 0, steps - 1 do
+		local top = spec.upper - 0.3 - drop * k
+		local height = top - bottom
+		local cf = facing * CFrame.new(0, 0, -(k + 0.5) * depth)
+		cf = CFrame.new(cf.Position.X, bottom + height / 2, cf.Position.Z) * facing.Rotation
+		part(model, "Step", Vector3.new(length, height, depth), cf, CONCRETE, Enum.Material.Concrete)
+		-- A sheet of water over the step's lip.
+		part(model, "Spill", Vector3.new(length - 1, 0.25, depth), cf * CFrame.new(0, height / 2 + 0.12, 0),
+			Color3.fromRGB(150, 180, 170), Enum.Material.Glass,
+			{ Transparency = 0.45, CanCollide = false, CanQuery = false })
+	end
+	-- Walls at the ends, a slab walk along their tops.
+	for _, s in ipairs({ -1, 1 }) do
+		local run = steps * depth + 2
+		local cf = facing * CFrame.new(s * (length / 2 + 1), 0, -run / 2 + 1)
+		local height = spec.upper + 1 - bottom
+		part(model, "Wall", Vector3.new(2, height, run),
+			CFrame.new(cf.Position.X, bottom + height / 2, cf.Position.Z) * facing.Rotation, CONCRETE,
+			Enum.Material.Concrete)
+	end
+	return model
+end
+
 function Paths.build()
 	local features = require(ServerStorage:WaitForChild("TerrainData"):WaitForChild("Features"))
 	local root = workspace:FindFirstChild("DuckPond") or Instance.new("Folder")
@@ -219,6 +267,9 @@ function Paths.build()
 	end
 	for _, spec in ipairs(features.steps) do
 		stairs(steps, spec)
+	end
+	for _, spec in ipairs(features.weirs or {}) do
+		weir(bridges, spec)
 	end
 	return string.format("%d bridges, %d flights of steps", #features.bridges, #features.steps)
 end

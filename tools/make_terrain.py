@@ -93,6 +93,7 @@ def main():
     road_img, path_img, creek_img = mask(), mask(), mask()
     bridges, steps = [], []
     weir_img = mask()
+    weirs = []
     for el in osm:
         t = el.get("tags", {})
         is_water = t.get("natural") == "water" or t.get("water") in ("pond", "basin")
@@ -114,6 +115,7 @@ def main():
                 ImageDraw.Draw(road_img).polygon(g, fill=255)
             elif t.get("waterway") in ("weir", "dam"):
                 line(weir_img, g, 1.5)
+                weirs.append(el)
             elif t.get("waterway") in ("stream", "river", "ditch") and t.get("tunnel") is None:
                 line(creek_img, g, CREEK_WIDTH / cell_m)
             elif "highway" in t and t.get("bridge") == "yes":
@@ -166,8 +168,11 @@ def main():
     mat[np.array(sand_img) > 127] = "s"
     mat[np.array(path_img) > 127] = "p"
     mat[np.array(road_img) > 127] = "a"
+    # The banks, as the photos show them: lawn mown to the water's edge, with
+    # stones scattered along it.
     near_water = (distance(~(pond | creek)) * cell_m < 1.6) & ~(pond | creek)
-    mat[near_water & (mat == "g")] = "m"
+    stones = np.random.default_rng(7).random(ground.shape) < 0.3
+    mat[near_water & stones & (mat == "g")] = "r"
     mat[pond] = "m"
     mat[creek] = "r"
     mat[weir] = "r"
@@ -237,6 +242,28 @@ def main():
             "handrail": t.get("handrail") == "yes",
             "points": [studs(p) for p in g],
             "ends": [(a - BASE_M) / M_PER_STUD, (b - BASE_M) / M_PER_STUD],
+        })
+    # The weirs: a stepped concrete cascade (Commons photo of the dam) from
+    # the upper pond down to the lower, the steps running downstream.
+    for el in weirs:
+        g = el["geometry"]
+        a, b = studs(g[0]), studs(g[-1])
+        mid = ((a[0] + b[0]) / 2, (a[1] + b[1]) / 2)
+        along_ = np.array([b[0] - a[0], b[1] - a[1]]); along_ /= np.linalg.norm(along_)
+        normal = np.array([-along_[1], along_[0]])
+        def level_at(off):
+            x, z = mid[0] + normal[0] * off, mid[1] + normal[1] * off
+            i, j = int((z - z0) / CELL), int((x - x0) / CELL)
+            return water_top[i, j] if 0 <= i < nz and 0 <= j < nx else np.nan
+        side = [level_at(-14), level_at(14)]  # ~4 m either side
+        if not all(np.isfinite(side)):
+            continue
+        down = 1 if side[1] < side[0] else -1  # the lower pond's side of the line
+        features.setdefault("weirs", []).append({
+            "points": [studs(p) for p in g],
+            "downstream": [float(normal[0] * down), float(normal[1] * down)],
+            "upper": (max(side) - BASE_M) / M_PER_STUD,
+            "lower": (min(side) - BASE_M) / M_PER_STUD,
         })
     (OUT / "Features.lua").write_text("-- Written by tools/make_terrain.py; don't edit by hand.\nreturn "
                                       + lua(features) + "\n")
