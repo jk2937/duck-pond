@@ -42,7 +42,8 @@ end
 
 function Terrain.build()
 	local folder = ServerStorage:WaitForChild("TerrainData")
-	local meta = require(folder:WaitForChild("Meta"))
+	-- A fresh copy each run: require caches, and the data changes between runs.
+	local meta = require(folder:WaitForChild("Meta"):Clone())
 	local value = decoder()
 	local height = reader(folder:WaitForChild("Height").Value, value)
 	local water = reader(folder:WaitForChild("Water").Value, value)

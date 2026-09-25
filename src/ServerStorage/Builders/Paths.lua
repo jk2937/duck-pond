@@ -246,7 +246,8 @@ local function weir(parent, spec)
 end
 
 function Paths.build()
-	local features = require(ServerStorage:WaitForChild("TerrainData"):WaitForChild("Features"))
+	-- A fresh copy each run: require caches, and the data changes between runs.
+	local features = require(ServerStorage:WaitForChild("TerrainData"):WaitForChild("Features"):Clone())
 	local root = workspace:FindFirstChild("DuckPond") or Instance.new("Folder")
 	root.Name = "DuckPond"
 	root.Parent = workspace
