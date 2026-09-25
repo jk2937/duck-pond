@@ -185,6 +185,17 @@ local function conifer(model, base, h, r, rng)
 	end
 end
 
+local groundParams = RaycastParams.new()
+groundParams.FilterType = Enum.RaycastFilterType.Include
+groundParams.IgnoreWater = true
+
+-- The terrain's surface under a point, or the fallback.
+local function groundY(x, z, fallback)
+	groundParams.FilterDescendantsInstances = { workspace.Terrain }
+	local hit = workspace:Raycast(Vector3.new(x, 400, z), Vector3.new(0, -800, 0), groundParams)
+	return if hit then hit.Position.Y else fallback
+end
+
 local BUILD = { broadleaf = broadleaf, willow = willow, conifer = conifer }
 
 function Trees.build()
@@ -208,9 +219,9 @@ function Trees.build()
 		if build then
 			local model = Instance.new("Model")
 			model.Name = kind
-			-- Sunk a little, so the trunk meets the ground wherever the
-			-- terrain's surface lands.
-			build(model, Vector3.new(x, y - SINK, z), h, r, Random.new(math.floor(x * 31 + z * 17)))
+			-- On the terrain as it's drawn (it lands a little off the data),
+			-- sunk a little so the trunk always meets it.
+			build(model, Vector3.new(x, groundY(x, z, y) - SINK, z), h, r, Random.new(math.floor(x * 31 + z * 17)))
 			model.Parent = folder
 			counts[kind] = (counts[kind] or 0) + 1
 			n += 1
