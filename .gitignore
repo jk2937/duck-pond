@@ -2,3 +2,6 @@
 *.lock
 *.lock.rbxlx
 .DS_Store
+
+# Lidar tiles: re-fetched by tools/fetch_lidar.py; lidar_points.npz is kept
+data/raw/lidar/
