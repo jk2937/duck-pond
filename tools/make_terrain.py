@@ -45,6 +45,7 @@ CREEK_WIDTH = 3.0  # m
 CREEK_CUT = 0.6  # m below the ground the bed goes
 ROAD_WIDTH = {"tertiary": 8, "secondary": 9, "unclassified": 6, "residential": 6, "service": 4}
 PATH_WIDTH = 3.2  # m: a touch wide, so a 1.1 m voxel grid draws it unbroken
+SPAWN_NEAR = (88, 464)  # studs: the far bank, across the pond from the first spot
 B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
 
@@ -268,9 +269,12 @@ def main():
     (OUT / "Features.lua").write_text("-- Written by tools/make_terrain.py; don't edit by hand.\nreturn "
                                       + lua(features) + "\n")
 
-    # Where a player starts: on the path nearest the pond's middle, facing it.
-    paths = np.argwhere((mat == "p") & np.isnan(water_top))
-    oz, ox = (-z0 / CELL), (-x0 / CELL)
+    # Where a player starts: on the grass a few metres from the water (the
+    # lawn runs to the edge), as near SPAWN_NEAR as that allows -- across the
+    # pond from the first spot.
+    shore = distance(~pond)  # cells from each land cell to the pond
+    paths = np.argwhere((shore >= 2) & (shore <= 4) & np.isnan(water_top) & (mat == "g"))
+    oz, ox = ((SPAWN_NEAR[1] - z0) / CELL), ((SPAWN_NEAR[0] - x0) / CELL)
     sz_, sx_ = paths[np.argmin((paths[:, 0] - oz) ** 2 + (paths[:, 1] - ox) ** 2)]
     spawn = (x0 + (sx_ + 0.5) * CELL, (ground[sz_, sx_] - BASE_M) / M_PER_STUD + 3, z0 + (sz_ + 0.5) * CELL)
 

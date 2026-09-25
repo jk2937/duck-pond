@@ -7,7 +7,7 @@ return {
 	z0 = -1136,
 	baseMetres = 611.0, -- elevation at Y = 0
 	metresPerStud = 0.28,
-	spawn = { -62.0, 26.5, -122.0 }, -- on a path by the water
+	spawn = { 46.0, 30.7, 342.0 }, -- on a path by the water
 	materials = { g = "Grass", l = "LeafyGrass", s = "Sand", m = "Mud", a = "Asphalt", p = "Pavement", r = "Rock", b = "Ground" },
 	source = "USGS 3DEP elevation; (c) OpenStreetMap contributors",
 }
