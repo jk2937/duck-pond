@@ -7,7 +7,8 @@ return {
 	z0 = -1136,
 	baseMetres = 611.0, -- elevation at Y = 0
 	metresPerStud = 0.28,
-	spawn = { 46.0, 30.7, 342.0 }, -- on a path by the water
+	spawn = { 46.0, 30.7, 342.0 }, -- on the lawn by the water
+	spawnLook = { -62, -122 }, -- the point it faces, across the pond
 	materials = { g = "Grass", l = "LeafyGrass", s = "Sand", m = "Mud", a = "Asphalt", p = "Pavement", r = "Rock", b = "Ground" },
 	source = "USGS 3DEP elevation; (c) OpenStreetMap contributors",
 }

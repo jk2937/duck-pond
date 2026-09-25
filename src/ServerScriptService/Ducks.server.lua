@@ -34,6 +34,7 @@ local WALK_SPEED = 2.2
 local TURN = 2.2 -- radians/s
 local CURIOUS = 45 -- studs: a player this close at the water gets visitors
 local rng = Random.new()
+local FEED = { CRUMBS = 5, RANGE = 160, LIFETIME = 45, COOLDOWN = 1.2, RUSH = 1.8 }
 
 -- Water ------------------------------------------------------------------------
 
@@ -275,6 +276,70 @@ for _, group in ipairs(POPULATION) do
 	end
 end
 
+-- Bread ------------------------------------------------------------------------
+-- A player tosses bread (F, or the button; see Feed.client.lua); crumbs land
+-- on the water a little ahead of them and every bird in range races for one.
+
+local crumbs = {} -- { part, level, born }
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local toss = Instance.new("RemoteEvent")
+toss.Name = "TossBread"
+toss.Parent = ReplicatedStorage
+local lastToss = {}
+
+toss.OnServerEvent:Connect(function(player)
+	local now = os.clock()
+	if now - (lastToss[player] or 0) < FEED.COOLDOWN then
+		return
+	end
+	lastToss[player] = now
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return
+	end
+	local ahead = (root.CFrame.LookVector * Vector3.new(1, 0, 1)).Unit
+	-- Aim for the water: the first open water ahead, within a good throw.
+	local reach = 10
+	for d = 6, 30, 2 do
+		local p = root.Position + ahead * d
+		if waterAt(p.X, p.Z) and waterAt(p.X + ahead.X * 2, p.Z + ahead.Z * 2) then
+			reach = d + 3
+			break
+		end
+	end
+	for _ = 1, FEED.CRUMBS do
+		local landing = root.Position + ahead * (reach + rng:NextNumber(-1.5, 2.5))
+			+ Vector3.new(rng:NextNumber(-2, 2), 0, rng:NextNumber(-2, 2))
+		local level = waterAt(landing.X, landing.Z)
+		local y = level or groundY(landing.X, landing.Z) or root.Position.Y
+		local p = Instance.new("Part")
+		p.Name = "Crumb"
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.Size = Vector3.new(0.35, 0.18, 0.3)
+		p.Color = Color3.fromRGB(214, 180, 124)
+		p.Material = Enum.Material.SmoothPlastic
+		p.CFrame = CFrame.new(landing.X, y + 0.05, landing.Z) * CFrame.Angles(0, rng:NextNumber(0, 6), 0)
+		p.Parent = folder
+		table.insert(crumbs, { part = p, level = level, born = now })
+	end
+end)
+
+-- The nearest crumb on this bird's water, if there is one in range.
+local function nearestCrumb(bird)
+	local best, bestD = nil, FEED.RANGE
+	for _, c in ipairs(crumbs) do
+		if c.level and math.abs(c.level - bird.level) < 0.5 then
+			local d = (Vector3.new(c.part.Position.X, bird.position.Y, c.part.Position.Z) - bird.position).Magnitude
+			if d < bestD then
+				best, bestD = c, d
+			end
+		end
+	end
+	return best
+end
+
 -- The nearest player standing at the water, near enough to be interesting.
 local function curiousAbout(bird)
 	local best, bestD = nil, CURIOUS
@@ -322,6 +387,13 @@ local t = 0
 RunService.Heartbeat:Connect(function(dt)
 	t += dt
 	local now = os.clock()
+	-- Old crumbs sink.
+	for i = #crumbs, 1, -1 do
+		if now - crumbs[i].born > FEED.LIFETIME then
+			crumbs[i].part:Destroy()
+			table.remove(crumbs, i)
+		end
+	end
 	for _, bird in ipairs(birds) do
 		local pose = CFrame.new()
 		if bird.mode == "graze" then
@@ -359,9 +431,23 @@ RunService.Heartbeat:Connect(function(dt)
 				end
 			end
 		else
-			-- On the water: paddle to a spot, or to a person at the edge.
-			local person = curiousAbout(bird)
+			-- On the water: bread first, then a person at the edge, then
+			-- wherever it was going.
+			local crumb = nearestCrumb(bird)
+			local person = if crumb then nil else curiousAbout(bird)
 			local goal = bird.target
+			local speed = SWIM_SPEED
+			if crumb then
+				goal = Vector3.new(crumb.part.Position.X, bird.position.Y, crumb.part.Position.Z)
+				speed = SWIM_SPEED * FEED.RUSH
+				if bird.mode == "tip" then
+					bird.mode = "swim"
+				end
+				if (goal - bird.position).Magnitude < 1.4 then
+					crumb.part:Destroy()
+					table.remove(crumbs, table.find(crumbs, crumb))
+				end
+			end
 			if person then
 				local toBird = bird.position - Vector3.new(person.X, bird.position.Y, person.Z)
 				local stop = Vector3.new(person.X, bird.position.Y, person.Z) + toBird.Unit * 5
@@ -372,7 +458,7 @@ RunService.Heartbeat:Connect(function(dt)
 			end
 			local d = goal - bird.position
 			if Vector3.new(d.X, 0, d.Z).Magnitude < 1 then
-				if not person then
+				if not person and not crumb then
 					if bird.mode == "swim" and rng:NextNumber() < 0.3 then
 						bird.mode = "tip"
 						bird.until_ = now + rng:NextNumber(2, 4)
@@ -380,7 +466,7 @@ RunService.Heartbeat:Connect(function(dt)
 					bird.target = newTarget(bird)
 				end
 			elseif bird.mode == "swim" and turnToward(bird, goal, dt) then
-				local step = Vector3.new(d.X, 0, d.Z).Unit * math.min(SWIM_SPEED * dt, d.Magnitude)
+				local step = Vector3.new(d.X, 0, d.Z).Unit * math.min(speed * dt, d.Magnitude)
 				local next = bird.position + step
 				local level = waterAt(next.X, next.Z)
 				if level and math.abs(level - bird.level) < 0.5 then

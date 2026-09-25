@@ -211,6 +211,14 @@ local function bench(parent, at)
 		part(m, "Back", Vector3.new(6.4, 0.45, 0.2), at * CFrame.new(0, 2.4 + i * 0.6, 1.05) * CFrame.Angles(math.rad(-12), 0, 0),
 			SLAT, Enum.Material.Wood)
 	end
+	-- A seat, so a player can sit and look at the water.
+	local seat = Instance.new("Seat")
+	seat.Name = "Seat"
+	seat.Anchored = true
+	seat.Transparency = 1
+	seat.Size = Vector3.new(5, 0.3, 1.4)
+	seat.CFrame = at * CFrame.new(0, 1.75, 0.35)
+	seat.Parent = m
 	for _, x in ipairs({ -2.8, 2.8 }) do
 		part(m, "Leg", Vector3.new(0.25, 1.6, 1.6), at * CFrame.new(x, 0.8, 0.3), IRON, Enum.Material.Metal)
 		part(m, "Arm", Vector3.new(0.25, 1.5, 0.25), at * CFrame.new(x, 2.4, 1.05), IRON, Enum.Material.Metal)
@@ -288,6 +296,42 @@ local function shelter(parent, at)
 	m.Parent = parent
 end
 
+-- The sign by the spawn: where you are, and whose data made it (OSM's
+-- licence asks for the credit).
+local CREDIT = "THE DUCK POND\nVirginia Tech · Blacksburg, Virginia\n\n"
+	.. "Map data © OpenStreetMap contributors\nGround and trees: USGS 3DEP elevation and lidar\n"
+	.. "Reference photos: Wikimedia Commons contributors"
+
+local function sign(parent, at)
+	local m = Instance.new("Model")
+	m.Name = "Sign"
+	for _, x in ipairs({ -2.6, 2.6 }) do
+		part(m, "Post", Vector3.new(0.5, 6, 0.5), at * CFrame.new(x, 3, 0), SLAT, Enum.Material.Wood)
+	end
+	local board = part(m, "Board", Vector3.new(6.4, 3.8, 0.3), at * CFrame.new(0, 4.4, 0), Color3.fromRGB(96, 70, 46),
+		Enum.Material.Wood)
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 60
+	gui.Parent = board
+	local text = Instance.new("TextLabel")
+	text.Size = UDim2.fromScale(1, 1)
+	text.BackgroundTransparency = 1
+	text.TextColor3 = Color3.fromRGB(244, 236, 214)
+	text.Font = Enum.Font.GothamMedium
+	text.TextScaled = true
+	text.Text = CREDIT
+	text.Parent = gui
+	local pad = Instance.new("UIPadding")
+	pad.PaddingLeft = UDim.new(0.06, 0)
+	pad.PaddingRight = UDim.new(0.06, 0)
+	pad.PaddingTop = UDim.new(0.08, 0)
+	pad.PaddingBottom = UDim.new(0.08, 0)
+	pad.Parent = text
+	m.Parent = parent
+end
+
 local FURNITURE = { bench = bench, picnic = picnic, lamp = lamp, bin = bin, fountain = fountain, shelter = shelter }
 
 function Landmarks.build()
@@ -327,6 +371,13 @@ function Landmarks.build()
 			build(furniture, at)
 			counts[f.kind] = (counts[f.kind] or 0) + 1
 		end
+	end
+	-- The credits sign, beside the spawn, facing the player as they arrive.
+	local spawn = workspace:FindFirstChild("SpawnLocation")
+	if spawn then
+		local beside = spawn.CFrame * CFrame.new(7, 0, -2)
+		local y = groundY(beside.X, beside.Z, beside.Y)
+		sign(furniture, CFrame.new(beside.X, y, beside.Z) * spawn.CFrame.Rotation * CFrame.Angles(0, math.rad(200), 0))
 	end
 	local parts = {}
 	for kind, n in pairs(counts) do

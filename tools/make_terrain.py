@@ -45,6 +45,7 @@ CREEK_WIDTH = 3.0  # m
 CREEK_CUT = 0.6  # m below the ground the bed goes
 ROAD_WIDTH = {"tertiary": 8, "secondary": 9, "unclassified": 6, "residential": 6, "service": 4}
 PATH_WIDTH = 3.2  # m: a touch wide, so a 1.1 m voxel grid draws it unbroken
+SPAWN_LOOK = (-62, -122)  # studs: the first spot, across the water
 SPAWN_NEAR = (88, 464)  # studs: the far bank, across the pond from the first spot
 B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
@@ -139,10 +140,18 @@ def main():
     # Each pond's level: the middle of the lidar's water surface.
     water_top = np.full(ground.shape, np.nan)
     labels, count = label(pond & ~weir)
+    # The lidar, if it's been fetched (tools/fetch_lidar.py): its water
+    # returns give each pond's real surface, its bridge returns each deck.
+    lidar = load_lidar(to_m, grid_xy, nx, nz)
     sizes = {k: int((labels == k).sum()) for k in range(1, count + 1)}
     for k, size in sizes.items():
         if size >= 40:
             water_top[labels == k] = np.median(ground[labels == k])
+            if lidar is not None:
+                wet = lidar["cls"] == 9
+                inside = labels[lidar["i"][wet], lidar["j"][wet]] == k
+                if inside.sum() > 30:
+                    water_top[labels == k] = np.median(lidar["z"][wet][inside])
     # Slivers the weir cut off take the level of the pond they touch.
     for k, size in sizes.items():
         if size < 40:
@@ -226,6 +235,19 @@ def main():
                                g[k]["lon"] + (g[k + 1]["lon"] - g[k]["lon"]) * f)
                         for k in range(len(g) - 1) for f in np.linspace(0, 1, 12))
         ends = [max(h, along_max + 0.15) for h in ends]
+        # The lidar measured the deck itself: use that where it has it.
+        if lidar is not None:
+            deck = lidar["cls"] == 17
+            near = np.zeros(deck.sum(), bool)
+            dx, dz = lidar["mx"][deck], lidar["mz"][deck]
+            for pa, pb in zip(g, g[1:]):
+                ax, az = to_m(pa["lat"], pa["lon"]); bx, bz = to_m(pb["lat"], pb["lon"])
+                vx, vz = bx - ax, bz - az
+                along_t = np.clip(((dx - ax) * vx + (dz - az) * vz) / max(vx * vx + vz * vz, 1e-6), 0, 1)
+                near |= np.hypot(dx - (ax + along_t * vx), dz - (az + along_t * vz)) < 4
+            if near.sum() > 10:
+                top = float(np.median(lidar["z"][deck][near]))
+                ends = [top, top]
         road = t["highway"] in ROAD_WIDTH
         features["bridges"].append({
             "kind": "road" if road else "foot",
@@ -269,6 +291,20 @@ def main():
     (OUT / "Features.lua").write_text("-- Written by tools/make_terrain.py; don't edit by hand.\nreturn "
                                       + lua(features) + "\n")
 
+    # Iris and reeds at the water's edge (the photos: clumps of sword-leaved
+    # iris along the banks): on the land just by the ponds and the creek.
+    prng = np.random.default_rng(11)
+    by_pond = (distance(~pond) <= 1.5) & np.isnan(water_top) & np.isin(mat, ["g", "r"])
+    by_creek = (distance(~creek) <= 1.5) & np.isnan(water_top) & np.isin(mat, ["g", "r"])
+    plants = []
+    for (i, j) in np.argwhere(by_pond | by_creek):
+        if prng.random() < (0.45 if by_pond[i, j] else 0.25):
+            x = x0 + (j + prng.random()) * CELL
+            z = z0 + (i + prng.random()) * CELL
+            kind = "iris" if prng.random() < 0.7 else "reed"
+            plants.append(f"{x:.1f} {z:.1f} {(ground[i, j] - BASE_M) / M_PER_STUD:.1f} {kind}")
+    (OUT / "Plants.txt").write_text("\n".join(plants))
+
     # Where a player starts: on the grass a few metres from the water (the
     # lawn runs to the edge), as near SPAWN_NEAR as that allows -- across the
     # pond from the first spot.
@@ -296,7 +332,8 @@ return {{
 	z0 = {z0},
 	baseMetres = {BASE_M}, -- elevation at Y = 0
 	metresPerStud = {M_PER_STUD},
-	spawn = {{ {spawn[0]:.1f}, {spawn[1]:.1f}, {spawn[2]:.1f} }}, -- on a path by the water
+	spawn = {{ {spawn[0]:.1f}, {spawn[1]:.1f}, {spawn[2]:.1f} }}, -- on the lawn by the water
+	spawnLook = {{ {SPAWN_LOOK[0]}, {SPAWN_LOOK[1]} }}, -- the point it faces, across the pond
 	materials = {{ {", ".join(f'{k} = "{v}"' for k, v in MATERIALS.items())} }},
 	source = "USGS 3DEP elevation; (c) OpenStreetMap contributors",
 }}
@@ -330,6 +367,20 @@ def bilinear(img, x, y):
 
 def line(img, points, width_cells):
     ImageDraw.Draw(img).line(points, fill=255, width=max(1, int(round(width_cells))), joint="curve")
+
+
+def load_lidar(to_m, grid_xy, nx, nz):
+    path = RAW / "lidar_points.npz"
+    if not path.exists():
+        return None
+    pts = np.load(path)
+    r = 6378137.0
+    lon = np.degrees(pts["x"] / r)
+    lat = np.degrees(2 * np.arctan(np.exp(pts["y"] / r)) - np.pi / 2)
+    mx, mz = to_m(lat, lon)
+    gx, gz = grid_xy(lat, lon)
+    return {"z": pts["z"], "cls": pts["cls"], "mx": mx, "mz": mz,
+            "i": np.clip(gz.astype(int), 0, nz - 1), "j": np.clip(gx.astype(int), 0, nx - 1)}
 
 
 def lua(v, indent=0):

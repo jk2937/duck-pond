@@ -139,7 +139,9 @@ function Terrain.build()
 	spawn.Transparency = 1
 	spawn.CanCollide = false
 	spawn:ClearAllChildren()
-	spawn.Position = Vector3.new(meta.spawn[1], meta.spawn[2], meta.spawn[3])
+	local at = Vector3.new(meta.spawn[1], meta.spawn[2], meta.spawn[3])
+	local look = meta.spawnLook or { 0, 0 }
+	spawn.CFrame = CFrame.lookAt(at, Vector3.new(look[1], at.Y, look[2]))
 	spawn.Parent = workspace
 	local base = workspace:FindFirstChild("Baseplate")
 	if base then

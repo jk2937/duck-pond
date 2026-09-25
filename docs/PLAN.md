@@ -6,11 +6,27 @@
    bridge and the footbridges.
 3. **Trees and plantings** (first pass done: 865 real trees from USGS lidar -- broadleaf, willow, conifer) -- the mapped trees, plus the canopy seen in the
    aerial photo (the south and east banks are dense and mostly unmapped).
-4. **Landmarks** (first pass done: 27 buildings at lidar heights, Solitude from photos, OSM + guessed benches, lamps, bins, picnic tables, shelter, fountain) -- benches, shelters, weirs, the gazebo, lamps; then the
+4. **Landmarks** (buildings DEFERRED: the base massing needs work before any detail pass; first pass done: 27 buildings at lidar heights, Solitude from photos, OSM + guessed benches, lamps, bins, picnic tables, shelter, fountain) -- benches, shelters, weirs, the gazebo, lamps; then the
    buildings around it (Solitude, The Grove, Hahn Hall, the Alumni Center)
    as simple massing.
-5. **Life** -- ducks and geese, sound, time of day.
+5. **Life** (done: 40 ducks and geese that come to the edge and chase bread, birdsong, the weir's water, iris and reeds, seats on the benches, a credits sign). No day/night cycle: it stays afternoon.
 6. **Detail** -- close work from ground photos.
 
 Open questions: the gazebo's exact spot and style, the footbridges' look, how
 deep the pond really is (the model guesses 2 m at most).
+
+## Deferred
+
+- **Buildings**: the base massing needs rework first (shapes, roofs, how they
+  meet the ground), then a detail pass (windows, doors, Hokie Stone texture).
+- **A real willow model**, if the part-built ones don't hold up.
+
+## Rebuilding
+
+After changing data or builders, in Studio (Edit mode):
+
+```lua
+require(game.ServerStorage.Builders.All).build()
+```
+
+then save the place. Visit notes go in `docs/VISIT_CHECKLIST.md`.

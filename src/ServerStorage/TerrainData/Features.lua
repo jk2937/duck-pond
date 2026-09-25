@@ -195,7 +195,7 @@ return {
 			},
 			downstream = { -0.56, 0.83 },
 			upper = 21.33,
-			lower = 15.71,
+			lower = 16.04,
 		},
 	},
 }
