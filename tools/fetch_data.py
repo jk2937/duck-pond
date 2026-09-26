@@ -6,6 +6,8 @@
               (c) OpenStreetMap contributors, ODbL: credit it in the game
   dem.tif     USGS 3DEP bare-earth elevation, ~1 m, float32 metres (public domain)
   aerial.png  USGS imagery, for reference (public domain)
+  vt_trees.json  Virginia Tech's Campus Tree Inventory: every campus tree's
+              species and measurements (public; VT Facilities' ArcGIS layer)
 
 All three cover BBOX, in lon/lat, and share its pixel frame.
 """
@@ -42,6 +44,13 @@ def main():
     curl(RAW / "aerial.png", "https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/export",
          {"bbox": box, "bboxSR": 4326, "imageSR": 4326, "size": f"{AERIAL_SIZE[0]},{AERIAL_SIZE[1]}",
           "format": "png", "f": "image"})
+    curl(RAW / "vt_trees.json",
+         "https://arcgis-central-prod.aws.gis.cloud.vt.edu/arcgis/rest/services/facilities/Campus_Trees/FeatureServer/0/query",
+         {"where": "1=1", "geometry": box, "geometryType": "esriGeometryEnvelope", "inSR": 4326, "outSR": 4326,
+          "spatialRel": "esriSpatialRelIntersects", "resultRecordCount": 2000, "f": "json",
+          "outFields": "treeid,status,commonname,scientificname,treetype,dbh,crownradius,height,totalheight,"
+                       "crownbase,crownwidthew,crownwidthns,health,ageclass,commemorative,latitude,longitude,"
+                       "collectiondate"})
     print("fetched into", RAW)
 
 

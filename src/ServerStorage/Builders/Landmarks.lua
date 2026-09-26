@@ -300,6 +300,7 @@ end
 -- licence asks for the credit).
 local CREDIT = "THE DUCK POND\nVirginia Tech · Blacksburg, Virginia\n\n"
 	.. "Map data © OpenStreetMap contributors\nGround and trees: USGS 3DEP elevation and lidar\n"
+	.. "Tree species: Virginia Tech Campus Tree Inventory\n"
 	.. "Reference photos: Wikimedia Commons contributors"
 
 local function sign(parent, at)

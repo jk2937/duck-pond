@@ -8,14 +8,17 @@
 2. Tree tops: local maxima of the smoothed canopy, searched over a window
    that grows with height (tall trees have wide crowns), 3 m and up.
 3. Each tree's height, crown radius (how far the canopy stays above half its
-   height), and kind:
-     willow   within ~12 m of the ponds or creek (the photos: willows line the
-              water)
-     conifer  dense to the ground: few ground returns under the crown (the
-              survey is leaf-off, so a broadleaf lets the laser through)
-     broadleaf everything else
+   height), and, lacking a species, broadleaf or conifer (conifer where the
+   leaf-off survey couldn't see the ground under the crown).
+4. Virginia Tech's Campus Tree Inventory (data/raw/vt_trees.json, public, from
+   VT Facilities' ArcGIS service), where it covers: a lidar tree with an
+   inventory tree within 4 m takes its species and the arborists'
+   measurements; one whose match has since been removed is dropped; living
+   inventory trees the 2017 survey missed are added. Species decide the
+   shape: willow, conifer, cypress (deciduous conifers), ornamental, broadleaf.
 Writes src/ServerStorage/TerrainData/Trees.txt: one tree a line,
-  x z y height radius kind   (studs; y is the ground)
+  x z y height radius kind species   (studs; y is the ground; species is the
+  inventory's common name with _ for spaces, or - if unknown)
 and data/trees_preview.png.
 """
 
@@ -138,33 +141,122 @@ def main():
         disk = (yy - i) ** 2 + (xx - j) ** 2 <= (crown * CELL) ** 2
         taken[i0:i1, j0:j1] |= disk
         g_frac = ground_hits[i0:i1, j0:j1][disk].sum() / max(1, all_hits[i0:i1, j0:j1][disk].sum())
-        if near_water[i, j]:
-            kind = "willow"
-        elif g_frac < 0.12 and h > 5:
+        # No species here: just broadleaf or conifer. (The VT inventory,
+        # below, names the ones it knows -- willows included.)
+        if g_frac < 0.12 and h > 5:
             kind = "conifer"
         else:
             kind = "broadleaf"
         x_st = (gx0 + (j + 0.5) * CELL) / M_PER_STUD
         z_st = (gz0 + (i + 0.5) * CELL) / M_PER_STUD
         y_st = (ground[i, j] - BASE_M) / M_PER_STUD
-        trees.append((x_st, z_st, y_st, h / M_PER_STUD, crown / M_PER_STUD, kind))
+        trees.append((x_st, z_st, y_st, h / M_PER_STUD, crown / M_PER_STUD, kind, "-"))
+
+    # Virginia Tech's campus tree inventory, where it covers: each tree's
+    # species and the arborists' measurements. A lidar tree with an
+    # inventory tree within MATCH metres becomes that tree; one whose match
+    # has been removed since is dropped; inventory trees the 2017 survey
+    # didn't see (planted since) are added.
+    trees, matched, added, dropped = merge_inventory(trees, gx0, gz0, ground, W, H)
 
     OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / "Trees.txt").write_text("\n".join(f"{x:.1f} {z_:.1f} {y:.1f} {h:.1f} {c:.1f} {k}"
-                                             for x, z_, y, h, c, k in trees))
-    counts = {k: sum(1 for t in trees if t[5] == k) for k in ("broadleaf", "willow", "conifer")}
+    (OUT / "Trees.txt").write_text("\n".join(f"{x:.1f} {z_:.1f} {y:.1f} {h:.1f} {c:.1f} {k} {sp}"
+                                             for x, z_, y, h, c, k, sp in trees))
+    print(f"inventory: {matched} lidar trees named, {added} added, {dropped} removed since 2017")
+    counts = {}
+    for t in trees:
+        counts[t[5]] = counts.get(t[5], 0) + 1
     print(len(trees), "trees", counts, "heights %.0f-%.0f m" % (min(t[3] for t in trees) * M_PER_STUD,
                                                               max(t[3] for t in trees) * M_PER_STUD))
 
     # Preview over the aerial.
     aerial = Image.open(RAW / "aerial.png").convert("RGB").resize((W, H))
     d = ImageDraw.Draw(aerial)
-    colour = {"broadleaf": (255, 220, 0), "willow": (0, 230, 255), "conifer": (255, 60, 200)}
-    for x, z_, _, h, c, k in trees:
+    colour = {"broadleaf": (255, 220, 0), "willow": (0, 230, 255), "conifer": (255, 60, 200),
+              "cypress": (120, 255, 120), "ornamental": (255, 140, 200)}
+    for x, z_, _, h, c, k, _sp in trees:
         j = x * M_PER_STUD - gx0; i = z_ * M_PER_STUD - gz0
         rr = c * M_PER_STUD
         d.ellipse([j - rr, i - rr, j + rr, i + rr], outline=colour[k])
     aerial.save(ROOT / "data" / "trees_preview.png")
+
+
+INVENTORY_MATCH = 4.0  # metres
+FT = 0.3048
+DEFAULT_HEIGHT = {"L": 18.0, "M": 11.0, "S": 6.0}  # m, by the inventory's size class
+ORNAMENTAL = ("cherry", "crabapple", "dogwood", "serviceberry", "redbud", "magnolia", "plum", "pear")
+
+
+def tree_kind(name, code):
+    """The model's shape for an inventory species."""
+    name = (name or "").lower()
+    code = code or ""
+    if "willow" in name and "oak" not in name and "black willow" not in name:
+        return "willow"
+    if code.startswith("CD") or "cypress" in name and "leyland" not in name or "redwood" in name or "larch" in name:
+        return "cypress"
+    if code.startswith("CE") or any(w in name for w in ("pine", "spruce", "hemlock", "cedar", "fir", "yew", "juniper")):
+        return "conifer"
+    if code.endswith("S") or any(w in name for w in ORNAMENTAL):
+        return "ornamental"
+    return "broadleaf"
+
+
+def merge_inventory(trees, gx0, gz0, ground, W, H):
+    path = RAW / "vt_trees.json"
+    if not path.exists():
+        return trees, 0, 0, 0
+    inv = []
+    for f in json.load(open(path))["features"]:
+        a = f["attributes"]
+        lon, lat = f["geometry"]["x"], f["geometry"]["y"]
+        mx = (lon - ORIGIN[1]) * M_PER_DEG_LON
+        mz = -(lat - ORIGIN[0]) * M_PER_DEG_LAT
+        inv.append((mx, mz, a))
+    inv_xy = np.array([(x, z) for x, z, _ in inv])
+    used = np.zeros(len(inv), bool)
+    out, matched, dropped = [], 0, 0
+
+    def spec(a, lidar_h=None, lidar_r=None):
+        code = a.get("treetype") or ""
+        h = (a.get("totalheight") or a.get("height") or 0) * FT
+        if h <= 0:
+            h = lidar_h or DEFAULT_HEIGHT.get(code[-1:], 10.0)
+        h = max(h, 2.0)  # a few entries are saplings, or zero
+        r = (a.get("crownradius") or 0) * FT
+        if r <= 0:
+            r = lidar_r or max(1.5, h * 0.3)
+        species = (a.get("commonname") or "tree").strip().replace(" ", "_") or "tree"
+        return h, r, tree_kind(a.get("commonname"), code), species
+
+    for t in trees:
+        x_m, z_m = t[0] * M_PER_STUD, t[1] * M_PER_STUD
+        d = np.hypot(inv_xy[:, 0] - x_m, inv_xy[:, 1] - z_m)
+        d[used] = np.inf
+        k = int(np.argmin(d))
+        if d[k] > INVENTORY_MATCH:
+            out.append(t)
+            continue
+        used[k] = True
+        a = inv[k][2]
+        if a.get("status") in ("Removed", "Stump"):
+            dropped += 1
+            continue
+        h, r, kind, species = spec(a, t[3] * M_PER_STUD, t[4] * M_PER_STUD)
+        out.append((t[0], t[1], t[2], h / M_PER_STUD, r / M_PER_STUD, kind, species))
+        matched += 1
+    added = 0
+    for k, (mx, mz, a) in enumerate(inv):
+        if used[k] or a.get("status") != "Alive":
+            continue
+        i, j = int((mz - gz0) / CELL), int((mx - gx0) / CELL)
+        if not (0 <= i < H and 0 <= j < W):
+            continue
+        h, r, kind, species = spec(a)
+        out.append((mx / M_PER_STUD, mz / M_PER_STUD, (ground[i, j] - BASE_M) / M_PER_STUD, h / M_PER_STUD,
+                    r / M_PER_STUD, kind, species))
+        added += 1
+    return out, matched, added, dropped
 
 
 def blur(a, sigma):

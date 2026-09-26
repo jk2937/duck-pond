@@ -1,8 +1,11 @@
 --[[
 	Trees builder
-	The Duck Pond's real trees, found in USGS lidar by tools/make_trees.py:
-	each where it stands, as tall as it is, its crown as wide, and of the kind
-	it looks like -- broadleaf, weeping willow (the banks), or conifer.
+	The Duck Pond's real trees (tools/make_trees.py): found in USGS lidar,
+	named and measured by Virginia Tech's campus tree inventory where it
+	covers. Each stands where it is, as tall as it is, its crown as wide, in
+	the shape of its kind -- broadleaf, weeping willow, conifer, deciduous
+	conifer (bald cypress, dawn redwood), or small ornamental (cherry,
+	crabapple, dogwood) -- with its species' bark and leaf colours.
 
 		require(game.ServerStorage.Builders.Trees).build()
 
@@ -21,7 +24,37 @@ local LEAVES = {
 	broadleaf = { Color3.fromRGB(72, 112, 46), Color3.fromRGB(88, 126, 52), Color3.fromRGB(62, 98, 44) },
 	willow = { Color3.fromRGB(128, 156, 70), Color3.fromRGB(140, 166, 80) },
 	conifer = { Color3.fromRGB(46, 76, 44), Color3.fromRGB(52, 84, 50) },
+	cypress = { Color3.fromRGB(104, 142, 74), Color3.fromRGB(116, 150, 80) },
+	ornamental = { Color3.fromRGB(84, 122, 56), Color3.fromRGB(96, 130, 60) },
 }
+
+-- Species touches, by a word in the inventory's common name: bark, leaves.
+local SPECIES = {
+	sycamore = { bark = Color3.fromRGB(196, 190, 170) }, -- pale, mottled
+	birch = { bark = Color3.fromRGB(184, 150, 128) }, -- river birch: peeling, pinkish
+	beech = { bark = Color3.fromRGB(150, 150, 146) },
+	ash = { leaves = Color3.fromRGB(80, 118, 50) },
+	maple = { leaves = Color3.fromRGB(70, 110, 44) },
+	oak = { leaves = Color3.fromRGB(64, 100, 44) },
+	walnut = { leaves = Color3.fromRGB(96, 128, 56) },
+	locust = { leaves = Color3.fromRGB(104, 134, 58) },
+	hemlock = { leaves = Color3.fromRGB(40, 70, 44) },
+	pine = { leaves = Color3.fromRGB(52, 84, 48) },
+	spruce = { leaves = Color3.fromRGB(44, 72, 56) },
+	cherry = { bark = Color3.fromRGB(110, 62, 54), leaves = Color3.fromRGB(90, 118, 54) },
+	plum = { leaves = Color3.fromRGB(92, 44, 56) }, -- purple-leaf plums
+	dogwood = { leaves = Color3.fromRGB(82, 116, 58) },
+}
+local current = {} -- this tree's species touches, set per tree in build()
+
+local function leafFor(kind, rng)
+	local list = LEAVES[kind] or LEAVES.broadleaf
+	return current.leaves or list[rng:NextInteger(1, #list)]
+end
+
+local function barkFor(default)
+	return current.bark or default
+end
 
 local function part(parent, shape, size, cframe, colour, material, collide)
 	local p = Instance.new("Part")
@@ -57,10 +90,6 @@ local function trunk(model, base, height, width, colour, lean)
 	return (CFrame.new(base) * lean * CFrame.new(0, height, 0)).Position
 end
 
-local function pick(list, rng)
-	return list[rng:NextInteger(1, #list)]
-end
-
 -- Leaves never reach the ground: every tree keeps a bit of bare trunk under
 -- its crown, at least 0.7 m, and more on a tall tree. `base` is sunk 1.5
 -- studs, so this is measured from there.
@@ -80,9 +109,9 @@ end
 -- balls, the biggest in the middle.
 local function broadleaf(model, base, h, r, rng)
 	local lean = CFrame.Angles(math.rad(rng:NextNumber(-3, 3)), 0, math.rad(rng:NextNumber(-3, 3)))
-	local top = trunk(model, base, h * 0.55, math.max(1, h * 0.045), BARK, lean)
+	local top = trunk(model, base, h * 0.55, math.max(1, h * 0.045), barkFor(BARK), lean)
 	local centre = top + Vector3.new(0, h * 0.12, 0)
-	local leaves = pick(LEAVES.broadleaf, rng)
+	local leaves = leafFor("broadleaf", rng)
 	leafBall(model, base, h, centre, Vector3.one * r * 1.5, leaves)
 	for _ = 1, 5 do
 		local a = rng:NextNumber(0, math.pi * 2)
@@ -106,7 +135,7 @@ end
 -- and long curtains of strands falling out of it, longest at the edges and
 -- ragged at the bottom, with a gap under them for the trunk.
 local function willow(model, base, h, r, rng)
-	local leaves = pick(LEAVES.willow, rng)
+	local leaves = leafFor("willow", rng)
 	local pale = Color3.fromRGB(184, 200, 104)
 	local lean = CFrame.Angles(math.rad(rng:NextNumber(-10, 10)), 0, math.rad(rng:NextNumber(-10, 10)))
 	local trunkWidth = math.max(1.4, h * 0.075)
@@ -167,21 +196,57 @@ local function willow(model, base, h, r, rng)
 	end
 end
 
--- A conifer: a trunk the whole way up, in tiers of foliage narrowing to the
--- top, the lowest tier clear of the ground.
+-- A conifer -- hemlock, pine, spruce: a trunk the whole way up, and a soft
+-- cone of overlapping, flattened layers, narrowing to a point, the lowest
+-- clear of the ground.
 local function conifer(model, base, h, r, rng)
-	trunk(model, base, h * 0.95, math.max(0.9, h * 0.035), BARK, CFrame.new())
-	local leaves = pick(LEAVES.conifer, rng)
-	local tiers = 5
-	local depth = h * 0.22
-	local lift = math.max(0, clearance(h) + depth / 2 - h * 0.25)
+	trunk(model, base, h * 0.95, math.max(0.9, h * 0.035), barkFor(BARK), CFrame.new())
+	local leaves = leafFor("conifer", rng)
+	local floor = base.Y + clearance(h)
+	local layers = 7
+	for k = 0, layers - 1 do
+		local t = k / layers
+		local width = r * 2.1 * (1 - t * 0.88)
+		local depth = h * 0.2
+		local y = math.max(floor - base.Y + depth / 2, h * (0.18 + 0.78 * t))
+		ellipsoid(model, Vector3.new(width, depth, width * rng:NextNumber(0.9, 1)),
+			CFrame.new(base + Vector3.new(0, y, 0)) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0),
+			leaves:Lerp(Color3.new(0, 0, 0), rng:NextNumber(0, 0.1)))
+	end
+end
+
+-- A deciduous conifer -- bald cypress, dawn redwood, larch: a straight
+-- trunk, a narrow cone of soft, light, feathery green (the tree over the
+-- creek in the photos).
+local function cypress(model, base, h, r, rng)
+	trunk(model, base, h * 0.95, math.max(1, h * 0.05), Color3.fromRGB(128, 84, 60), CFrame.new())
+	local leaves = leafFor("cypress", rng)
+	local floor = base.Y + clearance(h)
+	local tiers = 6
 	for k = 0, tiers - 1 do
 		local t = k / tiers
-		local y = h * (0.25 + 0.7 * t) + lift * (1 - t)
-		local width = r * 2 * (1 - t * 0.8)
-		part(model, Enum.PartType.Cylinder, Vector3.new(depth, width, width),
-			CFrame.new(base + Vector3.new(0, y, 0)) * CFrame.Angles(0, rng:NextNumber(0, math.pi), math.rad(90)), leaves,
-			Enum.Material.Grass)
+		local y = math.max(floor - base.Y + h * 0.08, h * (0.2 + 0.75 * t))
+		local width = r * 1.7 * (1 - t * 0.85)
+		ellipsoid(model, Vector3.new(width, h * 0.2, width), CFrame.new(base + Vector3.new(0, y, 0)),
+			leaves:Lerp(Color3.fromRGB(150, 176, 100), rng:NextNumber(0, 0.2)))
+	end
+end
+
+-- A small ornamental -- cherry, crabapple, dogwood, serviceberry: a short
+-- trunk and a low, wide, rounded crown.
+local function ornamental(model, base, h, r, rng)
+	local lean = CFrame.Angles(math.rad(rng:NextNumber(-4, 4)), 0, math.rad(rng:NextNumber(-4, 4)))
+	local top = trunk(model, base, h * 0.4, math.max(0.7, h * 0.05), barkFor(BARK), lean)
+	local leaves = leafFor("ornamental", rng)
+	local crown = Vector3.new(r * 2, math.max(h * 0.55, 3), r * 2)
+	local centre = top + Vector3.new(0, crown.Y * 0.35, 0)
+	local lowest = base.Y + clearance(h) + crown.Y / 2
+	ellipsoid(model, crown, CFrame.new(centre.X, math.max(centre.Y, lowest), centre.Z), leaves)
+	for _ = 1, 3 do
+		local a = rng:NextNumber(0, math.pi * 2)
+		local c = Vector3.new(centre.X + math.cos(a) * r * 0.5, math.max(centre.Y, lowest) + rng:NextNumber(0, crown.Y * 0.25),
+			centre.Z + math.sin(a) * r * 0.5)
+		ellipsoid(model, crown * rng:NextNumber(0.55, 0.75), CFrame.new(c), leaves:Lerp(Color3.new(0, 0, 0), rng:NextNumber(0, 0.1)))
 	end
 end
 
@@ -196,7 +261,7 @@ local function groundY(x, z, fallback)
 	return if hit then hit.Position.Y else fallback
 end
 
-local BUILD = { broadleaf = broadleaf, willow = willow, conifer = conifer }
+local BUILD = { broadleaf = broadleaf, willow = willow, conifer = conifer, cypress = cypress, ornamental = ornamental }
 
 function Trees.build()
 	local data = ServerStorage:WaitForChild("TerrainData"):WaitForChild("Trees").Value
@@ -213,12 +278,23 @@ function Trees.build()
 	local counts = {}
 	local n = 0
 	for line in string.gmatch(data, "[^\n]+") do
-		local x, z, y, h, r, kind = string.match(line, "(%S+) (%S+) (%S+) (%S+) (%S+) (%S+)")
+		local x, z, y, h, r, kind, species = string.match(line, "(%S+) (%S+) (%S+) (%S+) (%S+) (%S+) ?(%S*)")
 		x, z, y, h, r = tonumber(x), tonumber(z), tonumber(y), tonumber(h), tonumber(r)
 		local build = BUILD[kind]
 		if build then
+			species = if species and species ~= "" and species ~= "-" then species else nil
+			current = {}
+			if species then
+				for word, touch in pairs(SPECIES) do
+					if string.find(species, word) then
+						current = touch
+						break
+					end
+				end
+			end
 			local model = Instance.new("Model")
-			model.Name = kind
+			model.Name = if species then string.gsub(species, "_", " ") else kind
+			model:SetAttribute("Kind", kind)
 			-- On the terrain as it's drawn (it lands a little off the data),
 			-- sunk a little so the trunk always meets it.
 			build(model, Vector3.new(x, groundY(x, z, y) - SINK, z), h, r, Random.new(math.floor(x * 31 + z * 17)))
@@ -230,8 +306,12 @@ function Trees.build()
 			end
 		end
 	end
-	return string.format("%d trees: %d broadleaf, %d willow, %d conifer", n, counts.broadleaf or 0,
-		counts.willow or 0, counts.conifer or 0)
+	local parts = {}
+	for kind, count in pairs(counts) do
+		table.insert(parts, count .. " " .. kind)
+	end
+	table.sort(parts)
+	return string.format("%d trees: %s", n, table.concat(parts, ", "))
 end
 
 return Trees
