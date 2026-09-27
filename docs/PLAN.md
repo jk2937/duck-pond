@@ -35,7 +35,10 @@ then save the place. Visit notes go in `docs/VISIT_CHECKLIST.md`.
 
 - **Paths look bad.** (First pass done: 239 paths and roads as ribbons of parts at
   real widths, grass under them; to refine: fewer parts on flat runs, curbs, surfaces
-  checked on a visit.) They're painted into the terrain, whose voxels are 4
+  checked on a visit.)
+- **Path junctions.** Where two paths cross, each sits at its own fitted height, so one's
+  edge shows as a thin ledge over the other. Fix: build junctions as one shared pad, and
+  snap the paths meeting there to its height. They're painted into the terrain, whose voxels are 4
   studs (~1.1 m) -- Roblox's finest -- so a 3 m path is only ~3 voxels wide:
   jagged, stair-stepped edges, and the pavement blends into the grass.
   Terrain can't go finer. Proposed fix: draw paths as their own surface -- a

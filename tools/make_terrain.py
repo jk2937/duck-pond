@@ -185,11 +185,11 @@ def main():
     # Paths and roads are drawn on top as ribbons of parts (Builders/Paths),
     # since terrain's 4-stud voxels are far too coarse for a path's edge.
     # Under them: Ground, coloured like the grass, which grows no blades to
-    # poke up through the paving -- a little wider than the path, so blades
-    # at the edge don't lean over it either (a mown border, in effect).
+    # poke up through the paving -- exactly the path's width, so blades only
+    # root outside it and the grass runs right up to the paving's edge.
     under = mask()
     for el, t, width, _ in ways:
-        line(under, pts(el["geometry"]), width / cell_m + 1.5)
+        line(under, pts(el["geometry"]), max(1, width / cell_m))
     mat[(np.array(under) > 127) & np.isnan(water_top)] = "b"
     # The banks, as the photos show them: lawn mown to the water's edge, with
     # stones scattered along it.

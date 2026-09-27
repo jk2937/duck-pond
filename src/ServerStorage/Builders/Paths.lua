@@ -256,44 +256,103 @@ local SURFACES = {
 	gravel = { Color3.fromRGB(160, 150, 132), Enum.Material.Pebble },
 	dirt = { Color3.fromRGB(132, 108, 80), Enum.Material.Ground },
 }
-local STEP = 4 -- studs between ground samples
+local STEP = 2 -- studs between ground samples
 local LIFT = 0.12 -- how far the surface sits above the ground
-local THICK = 0.8 -- deep enough that uneven ground never shows beneath
+local THICK = 0.3 -- thin: where two paths cross at slightly different heights, only a sliver of edge shows
 local SMOOTH = 0.15 -- studs of ground unevenness a merged piece may bridge
+
+-- The ground either side of a point, across a path of this width.
+local function sides(p, dir, width)
+	local across = Vector3.new(-dir.Z, 0, dir.X) * (width / 2)
+	return groundY(p - across), groundY(p), groundY(p + across)
+end
+
+-- A piece from node a to node b. Each node has its own height and sideways
+-- tilt, set from the ground across the path there (see way), and a piece is
+-- the plane through its two nodes -- so neighbours meet exactly, with no
+-- step between them, and each edge follows the ground.
+local function piece(parent, a, b, width, colour, material)
+	local flat = Vector3.new(b.p.X - a.p.X, 0, b.p.Z - a.p.Z)
+	local length = flat.Magnitude
+	if length < 0.05 then
+		return
+	end
+	local dir = flat.Unit
+	local right = Vector3.new(-dir.Z, 0, dir.X)
+	local ca = Vector3.new(a.p.X, a.y, a.p.Z)
+	local cb = Vector3.new(b.p.X, b.y, b.p.Z)
+	local forward = (cb - ca).Unit
+	local side = (right + Vector3.new(0, (a.bank + b.bank) / 2, 0)).Unit
+	local up = side:Cross(forward).Unit
+	if up.Y < 0 then
+		up = -up
+	end
+	side = forward:Cross(up).Unit
+	local cf = CFrame.fromMatrix((ca + cb) / 2 - up * THICK / 2, side, up, -forward)
+	part(parent, "Path", Vector3.new(width, THICK, length + 0.3), cf, colour, material, { CanCollide = false })
+end
 
 local function way(parent, spec)
 	local look = SURFACES[spec.surface] or SURFACES.concrete
 	local colour, material = look[1], look[2]
-	-- Resample the line every STEP studs, each point on the ground.
-	local pts = {}
+	-- Resample the line every STEP studs, each point with its ground heights
+	-- left, centre and right.
+	local flatPts = {}
 	for i = 1, #spec.points - 1 do
 		local a = Vector3.new(spec.points[i][1], 0, spec.points[i][2])
 		local b = Vector3.new(spec.points[i + 1][1], 0, spec.points[i + 1][2])
 		local n = math.max(1, math.ceil((b - a).Magnitude / STEP))
 		for k = 0, n - 1 do
-			table.insert(pts, a:Lerp(b, k / n))
+			table.insert(flatPts, a:Lerp(b, k / n))
 		end
 	end
 	local last = spec.points[#spec.points]
-	table.insert(pts, Vector3.new(last[1], 0, last[2]))
-	for i, p in ipairs(pts) do
-		local y = groundY(p) + LIFT
-		pts[i] = Vector3.new(p.X, if y == -math.huge then 0 else y, p.Z)
+	table.insert(flatPts, Vector3.new(last[1], 0, last[2]))
+	local pts = {}
+	for i, p in ipairs(flatPts) do
+		local nxt = flatPts[math.min(i + 1, #flatPts)]
+		local prv = flatPts[math.max(i - 1, 1)]
+		local dir = (nxt - prv).Magnitude > 0.01 and (nxt - prv).Unit or Vector3.new(0, 0, 1)
+		local l, c, r = sides(p, dir, spec.width)
+		if c == -math.huge then
+			c = 0
+		end
+		l = if l == -math.huge or l - c > 3 then c else l
+		r = if r == -math.huge or r - c > 3 then c else r
+		-- The node: tilted like the ground across the path, and high enough
+		-- that neither edge nor the middle is under it.
+		local bank = (r - l) / spec.width
+		-- High enough over five points across the path, the tilted plane's
+		-- height at each offset compared with the ground there (a crowned or
+		-- dished path would otherwise sink in the middle or at the quarters).
+		local across = Vector3.new(-dir.Z, 0, dir.X)
+		local y = -math.huge
+		for _, f in ipairs({ -0.5, -0.25, 0, 0.25, 0.5 }) do
+			local g = groundY(p + across * f * spec.width)
+			if g == -math.huge or g - c > 3 then
+				g = c
+			end
+			y = math.max(y, g - bank * f * spec.width)
+		end
+		y += LIFT
+		table.insert(pts, { p = p, l = l, c = c, r = r, y = y, bank = bank })
 	end
-	-- Merge runs where the ground is even: drop any point that sits within
-	-- SMOOTH of the straight line between its neighbours kept either side.
+	-- Merge runs where the ground is even, left, centre and right alike.
 	local kept = { pts[1] }
 	local i = 1
 	while i < #pts do
 		local j = i + 1
 		while j + 1 <= #pts do
 			local a, b = pts[i], pts[j + 1]
+			local span = (b.p - a.p).Magnitude
 			local ok = true
 			for k = i + 1, j do
-				local t = (pts[k] - a).Magnitude / math.max((b - a).Magnitude, 0.01)
-				local onLine = a:Lerp(b, t)
-				if math.abs(onLine.Y - pts[k].Y) > SMOOTH or (Vector3.new(onLine.X, 0, onLine.Z)
-					- Vector3.new(pts[k].X, 0, pts[k].Z)).Magnitude > 0.3 then
+				local t = (pts[k].p - a.p).Magnitude / math.max(span, 0.01)
+				local onLine = a.p:Lerp(b.p, t)
+				if (onLine - pts[k].p).Magnitude > 0.3
+					or math.abs(a.c + (b.c - a.c) * t - pts[k].c) > SMOOTH
+					or math.abs(a.l + (b.l - a.l) * t - pts[k].l) > SMOOTH
+					or math.abs(a.r + (b.r - a.r) * t - pts[k].r) > SMOOTH then
 					ok = false
 					break
 				end
@@ -306,21 +365,23 @@ local function way(parent, spec)
 		table.insert(kept, pts[j])
 		i = j
 	end
-	pts = kept
-	for i = 1, #pts - 1 do
-		local a, b = pts[i], pts[i + 1]
-		if (b - a).Magnitude > 0.05 then
-			local cf = CFrame.lookAt((a + b) / 2, b) * CFrame.new(0, -THICK / 2, 0)
-			part(parent, "Path", Vector3.new(spec.width, THICK, (b - a).Magnitude), cf, colour, material,
-				{ CanCollide = false })
-		end
+	for k = 1, #kept - 1 do
+		piece(parent, kept[k], kept[k + 1], spec.width, colour, material)
 	end
-	-- Round pads at the original bends only (the resampled points are straight).
-	for i = 2, #spec.points - 1 do
-		local p = Vector3.new(spec.points[i][1], 0, spec.points[i][2])
-		local y = groundY(p) + LIFT
+	-- Round pads at the original bends, level with the ground there.
+	for k = 2, #spec.points - 1 do
+		local p = Vector3.new(spec.points[k][1], 0, spec.points[k][2])
+		local _, c = sides(p, Vector3.new(0, 0, 1), spec.width)
+		local high = c
+		for a = 0, 3 do
+			local q = p + Vector3.new(math.cos(a * math.pi / 2), 0, math.sin(a * math.pi / 2)) * spec.width / 2
+			local g = groundY(q)
+			if g ~= -math.huge and g - c < 3 then
+				high = math.max(high, g)
+			end
+		end
 		part(parent, "Joint", Vector3.new(THICK, spec.width, spec.width),
-			CFrame.new(p.X, y - THICK / 2, p.Z) * CFrame.Angles(0, 0, math.rad(90)), colour, material,
+			CFrame.new(p.X, high + LIFT - THICK / 2, p.Z) * CFrame.Angles(0, 0, math.rad(90)), colour, material,
 			{ Shape = Enum.PartType.Cylinder, CanCollide = false })
 	end
 end
