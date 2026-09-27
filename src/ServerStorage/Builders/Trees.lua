@@ -115,7 +115,11 @@ local function broadleaf(model, base, h, r, rng)
 	leafBall(model, base, h, centre, Vector3.one * r * 1.5, leaves)
 	for _ = 1, 5 do
 		local a = rng:NextNumber(0, math.pi * 2)
-		local off = Vector3.new(math.cos(a) * r * 0.55, rng:NextNumber(-0.15, 0.35) * h, math.sin(a) * r * 0.55)
+		-- Spread up and down with the tree's height -- but no further than
+		-- the crown's width can fill, or a tall, narrow-crowned tree comes
+		-- apart into separate balls. (Most trees are well inside this.)
+		local spread = math.min(h, r * 4)
+		local off = Vector3.new(math.cos(a) * r * 0.55, rng:NextNumber(-0.15, 0.35) * spread, math.sin(a) * r * 0.55)
 		local size = r * rng:NextNumber(0.9, 1.2)
 		leafBall(model, base, h, centre + off, Vector3.one * size, leaves:Lerp(Color3.new(0, 0, 0),
 			rng:NextNumber(0, 0.12)))
