@@ -129,7 +129,7 @@ function Terrain.build()
 	terrain:SetMaterialColor(Enum.Material.Grass, Color3.fromRGB(96, 140, 64))
 	terrain:SetMaterialColor(Enum.Material.LeafyGrass, Color3.fromRGB(78, 118, 56))
 	terrain:SetMaterialColor(Enum.Material.Pavement, Color3.fromRGB(156, 150, 140))
-	terrain:SetMaterialColor(Enum.Material.Mud, Color3.fromRGB(96, 80, 58))
+	terrain:SetMaterialColor(Enum.Material.Mud, Color3.fromRGB(78, 62, 44))
 	-- Ground is only used under the paths: the grass's colour, but no blades.
 	terrain:SetMaterialColor(Enum.Material.Ground, Color3.fromRGB(96, 140, 64))
 	terrain:SetMaterialColor(Enum.Material.Sand, Color3.fromRGB(196, 174, 128))

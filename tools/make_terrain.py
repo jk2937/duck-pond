@@ -181,7 +181,7 @@ def main():
     # Materials.
     mat = np.full(ground.shape, "g", dtype="<U1")
     mat[np.array(wood_img) > 127] = "l"
-    mat[np.array(sand_img) > 127] = "s"
+    mat[np.array(sand_img) > 127] = "m"  # OSM's "sand" by the pond reads as dark mud
     # Paths and roads are drawn on top as ribbons of parts (Builders/Paths),
     # since terrain's 4-stud voxels are far too coarse for a path's edge.
     # Under them: Ground, coloured like the grass, which grows no blades to
