@@ -163,6 +163,15 @@ def main():
     (OUT / "Trees.txt").write_text("\n".join(f"{x:.1f} {z_:.1f} {y:.1f} {h:.1f} {c:.1f} {k} {sp}"
                                              for x, z_, y, h, c, k, sp in trees))
     print(f"inventory: {matched} lidar trees named, {added} added, {dropped} removed since 2017")
+    # For the tree sign by the spawn (Builders/Landmarks).
+    lidar_only = sum(1 for t in trees if t[6] == "-")
+    photos = ROOT / "data" / "photos" / "vt_trees" / "index.json"
+    pics = json.load(open(photos)) if photos.exists() else {}
+    (OUT / "TreeStats.lua").write_text(
+        "-- Written by tools/make_trees.py; don't edit by hand.\nreturn {\n"
+        f"\ttotal = {len(trees)},\n\tboth = {matched},\n\tinventoryOnly = {added},\n"
+        f"\tlidarOnly = {lidar_only},\n\tremoved = {dropped},\n"
+        f"\tphotoTrees = {len(pics)},\n\tphotos = {sum(len(e['photos']) for e in pics.values())},\n}}\n")
     counts = {}
     for t in trees:
         counts[t[5]] = counts.get(t[5], 0) + 1

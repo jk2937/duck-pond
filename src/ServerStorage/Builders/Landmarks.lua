@@ -303,11 +303,12 @@ local CREDIT = "THE DUCK POND\nVirginia Tech · Blacksburg, Virginia\n\n"
 	.. "Tree species: Virginia Tech Campus Tree Inventory\n"
 	.. "Reference photos: Wikimedia Commons contributors"
 
-local function sign(parent, at)
+local function sign(parent, at, textOverride, name)
 	local m = Instance.new("Model")
-	m.Name = "Sign"
-	for _, x in ipairs({ -2.6, 2.6 }) do
-		part(m, "Post", Vector3.new(0.5, 6, 0.5), at * CFrame.new(x, 3, 0), SLAT, Enum.Material.Wood)
+	m.Name = name or "Sign"
+	-- Posts at the board's ends, clear of its face, so they never cover the text.
+	for _, x in ipairs({ -3.5, 3.5 }) do
+		part(m, "Post", Vector3.new(0.5, 6.4, 0.5), at * CFrame.new(x, 3.2, 0), SLAT, Enum.Material.Wood)
 	end
 	local board = part(m, "Board", Vector3.new(6.4, 3.8, 0.3), at * CFrame.new(0, 4.4, 0), Color3.fromRGB(96, 70, 46),
 		Enum.Material.Wood)
@@ -322,7 +323,7 @@ local function sign(parent, at)
 	text.TextColor3 = Color3.fromRGB(244, 236, 214)
 	text.Font = Enum.Font.GothamMedium
 	text.TextScaled = true
-	text.Text = CREDIT
+	text.Text = textOverride or CREDIT
 	text.Parent = gui
 	local pad = Instance.new("UIPadding")
 	pad.PaddingLeft = UDim.new(0.06, 0)
@@ -379,6 +380,19 @@ function Landmarks.build()
 		local beside = spawn.CFrame * CFrame.new(7, 0, -2)
 		local y = groundY(beside.X, beside.Z, beside.Y)
 		sign(furniture, CFrame.new(beside.X, y, beside.Z) * spawn.CFrame.Rotation * CFrame.Angles(0, math.rad(200), 0))
+		-- And its neighbour: where the trees came from.
+		local statsModule = ServerStorage.TerrainData:FindFirstChild("TreeStats")
+		if statsModule then
+			local st = require(statsModule:Clone())
+			local text = string.format("THE TREES: %d\n\n%d  lidar, named by VT's inventory\n"
+				.. "%d  VT inventory only (newer, or hidden)\n%d  lidar only (no species)\n"
+				.. "%d  removed since the 2017 scan\n\nVT photos: %d, of %d trees",
+				st.total, st.both, st.inventoryOnly, st.lidarOnly, st.removed, st.photos, st.photoTrees)
+			local other = spawn.CFrame * CFrame.new(-7, 0, -2)
+			local oy = groundY(other.X, other.Z, other.Y)
+			sign(furniture, CFrame.new(other.X, oy, other.Z) * spawn.CFrame.Rotation * CFrame.Angles(0, math.rad(160), 0),
+				text, "TreeSign")
+		end
 	end
 	local parts = {}
 	for kind, n in pairs(counts) do

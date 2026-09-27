@@ -5,3 +5,5 @@
 
 # Lidar tiles: re-fetched by tools/fetch_lidar.py; lidar_points.npz is kept
 data/raw/lidar/
+# Tree photos: re-fetched by tools/fetch_tree_photos.py
+data/photos/vt_trees/

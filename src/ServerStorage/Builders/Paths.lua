@@ -245,13 +245,65 @@ local function weir(parent, spec)
 	return model
 end
 
+-- Paths and roads: a ribbon of thin slabs along each OSM line, at its real
+-- width, following the ground point by point, with a round pad at every
+-- joint so bends have no gaps. (Terrain's 4-stud voxels can't draw a
+-- clean path edge; these can.)
+local SURFACES = {
+	asphalt = { Color3.fromRGB(70, 70, 74), Enum.Material.Asphalt },
+	concrete = { Color3.fromRGB(184, 180, 170), Enum.Material.Concrete },
+	brick = { Color3.fromRGB(150, 84, 64), Enum.Material.Brick },
+	gravel = { Color3.fromRGB(160, 150, 132), Enum.Material.Pebble },
+	dirt = { Color3.fromRGB(132, 108, 80), Enum.Material.Ground },
+}
+local STEP = 4 -- studs between ground samples
+local LIFT = 0.12 -- how far the surface sits above the ground
+local THICK = 0.8 -- deep enough that uneven ground never shows beneath
+
+local function way(parent, spec)
+	local look = SURFACES[spec.surface] or SURFACES.concrete
+	local colour, material = look[1], look[2]
+	-- Resample the line every STEP studs, each point on the ground.
+	local pts = {}
+	for i = 1, #spec.points - 1 do
+		local a = Vector3.new(spec.points[i][1], 0, spec.points[i][2])
+		local b = Vector3.new(spec.points[i + 1][1], 0, spec.points[i + 1][2])
+		local n = math.max(1, math.ceil((b - a).Magnitude / STEP))
+		for k = 0, n - 1 do
+			table.insert(pts, a:Lerp(b, k / n))
+		end
+	end
+	local last = spec.points[#spec.points]
+	table.insert(pts, Vector3.new(last[1], 0, last[2]))
+	for i, p in ipairs(pts) do
+		local y = groundY(p) + LIFT
+		pts[i] = Vector3.new(p.X, if y == -math.huge then 0 else y, p.Z)
+	end
+	for i = 1, #pts - 1 do
+		local a, b = pts[i], pts[i + 1]
+		if (b - a).Magnitude > 0.05 then
+			local cf = CFrame.lookAt((a + b) / 2, b) * CFrame.new(0, -THICK / 2, 0)
+			part(parent, "Path", Vector3.new(spec.width, THICK, (b - a).Magnitude), cf, colour, material,
+				{ CanCollide = false })
+		end
+	end
+	-- Round pads at the original bends only (the resampled points are straight).
+	for i = 2, #spec.points - 1 do
+		local p = Vector3.new(spec.points[i][1], 0, spec.points[i][2])
+		local y = groundY(p) + LIFT
+		part(parent, "Joint", Vector3.new(THICK, spec.width, spec.width),
+			CFrame.new(p.X, y - THICK / 2, p.Z) * CFrame.Angles(0, 0, math.rad(90)), colour, material,
+			{ Shape = Enum.PartType.Cylinder, CanCollide = false })
+	end
+end
+
 function Paths.build()
 	-- A fresh copy each run: require caches, and the data changes between runs.
 	local features = require(ServerStorage:WaitForChild("TerrainData"):WaitForChild("Features"):Clone())
 	local root = workspace:FindFirstChild("DuckPond") or Instance.new("Folder")
 	root.Name = "DuckPond"
 	root.Parent = workspace
-	for _, name in ipairs({ "Bridges", "Steps" }) do
+	for _, name in ipairs({ "Bridges", "Steps", "Ways" }) do
 		local old = root:FindFirstChild(name)
 		if old then
 			old:Destroy()
@@ -269,10 +321,20 @@ function Paths.build()
 	for _, spec in ipairs(features.steps) do
 		stairs(steps, spec)
 	end
+	local ways = Instance.new("Folder")
+	ways.Name = "Ways"
+	ways.Parent = root
+	for i, spec in ipairs(features.ways or {}) do
+		way(ways, spec)
+		if i % 20 == 0 then
+			task.wait()
+		end
+	end
 	for _, spec in ipairs(features.weirs or {}) do
 		weir(bridges, spec)
 	end
-	return string.format("%d bridges, %d flights of steps", #features.bridges, #features.steps)
+	return string.format("%d bridges, %d flights of steps, %d paths (%d pieces)", #features.bridges,
+		#features.steps, #(features.ways or {}), #ways:GetChildren())
 end
 
 return Paths

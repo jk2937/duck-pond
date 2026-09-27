@@ -44,7 +44,9 @@ POND_MAX_DEPTH = 2.0  # m
 CREEK_WIDTH = 3.0  # m
 CREEK_CUT = 0.6  # m below the ground the bed goes
 ROAD_WIDTH = {"tertiary": 8, "secondary": 9, "unclassified": 6, "residential": 6, "service": 4}
-PATH_WIDTH = 3.2  # m: a touch wide, so a 1.1 m voxel grid draws it unbroken
+PATH_WIDTH = 2.4  # m: footpaths; drawn as ribbons of parts (Builders/Paths), not terrain
+WAY_SURFACE = {"asphalt": "asphalt", "concrete": "concrete", "paving_stones": "brick", "bricks": "brick",
+               "gravel": "gravel", "fine_gravel": "gravel", "compacted": "gravel", "dirt": "dirt", "ground": "dirt"}
 SPAWN_LOOK = (-62, -122)  # studs: the first spot, across the water
 SPAWN_NEAR = (88, 464)  # studs: the far bank, across the pond from the first spot
 B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
@@ -93,7 +95,7 @@ def main():
     wd, idr = ImageDraw.Draw(water_img), ImageDraw.Draw(island_img)
     wood_img, sand_img, park_img = mask(), mask(), mask()
     road_img, path_img, creek_img = mask(), mask(), mask()
-    bridges, steps = [], []
+    bridges, steps, ways = [], [], []
     weir_img = mask()
     weirs = []
     for el in osm:
@@ -128,8 +130,12 @@ def main():
                 hw = t["highway"]
                 if hw in ROAD_WIDTH:
                     line(road_img, g, ROAD_WIDTH[hw] / cell_m)
-                elif hw in ("footway", "path", "cycleway", "pedestrian", "steps", "track"):
+                    ways.append((el, t, ROAD_WIDTH[hw], WAY_SURFACE.get(t.get("surface"), "asphalt")))
+                elif hw in ("footway", "path", "cycleway", "pedestrian", "track"):
                     line(path_img, g, PATH_WIDTH / cell_m)
+                    width = float(t["width"]) if t.get("width", "").replace(".", "").isdigit() else (
+                        3.0 if hw in ("cycleway", "pedestrian") else PATH_WIDTH)
+                    ways.append((el, t, width, WAY_SURFACE.get(t.get("surface"), "concrete")))
 
     pond = (np.array(water_img) > 127) & ~(np.array(island_img) > 127)
     creek = (np.array(creek_img) > 127) & ~pond
@@ -176,8 +182,9 @@ def main():
     mat = np.full(ground.shape, "g", dtype="<U1")
     mat[np.array(wood_img) > 127] = "l"
     mat[np.array(sand_img) > 127] = "s"
-    mat[np.array(path_img) > 127] = "p"
-    mat[np.array(road_img) > 127] = "a"
+    # Paths and roads aren't painted at all: they're drawn on top as ribbons
+    # of parts (Builders/Paths), since terrain's 4-stud voxels are far too
+    # coarse for a path's edge. The grass runs under them.
     # The banks, as the photos show them: lawn mown to the water's edge, with
     # stones scattered along it.
     near_water = (distance(~(pond | creek)) * cell_m < 1.6) & ~(pond | creek)
@@ -288,6 +295,11 @@ def main():
             "upper": (max(side) - BASE_M) / M_PER_STUD,
             "lower": (min(side) - BASE_M) / M_PER_STUD,
         })
+    features["ways"] = [{
+        "surface": surface,
+        "width": width / M_PER_STUD,
+        "points": [studs(p) for p in el["geometry"]],
+    } for el, t, width, surface in ways]
     (OUT / "Features.lua").write_text("-- Written by tools/make_terrain.py; don't edit by hand.\nreturn "
                                       + lua(features) + "\n")
 

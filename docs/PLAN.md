@@ -33,7 +33,9 @@ then save the place. Visit notes go in `docs/VISIT_CHECKLIST.md`.
 
 ## Backlog
 
-- **Paths look bad.** They're painted into the terrain, whose voxels are 4
+- **Paths look bad.** (First pass done: 239 paths and roads as ribbons of parts at
+  real widths, grass under them; to refine: fewer parts on flat runs, curbs, surfaces
+  checked on a visit.) They're painted into the terrain, whose voxels are 4
   studs (~1.1 m) -- Roblox's finest -- so a 3 m path is only ~3 voxels wide:
   jagged, stair-stepped edges, and the pavement blends into the grass.
   Terrain can't go finer. Proposed fix: draw paths as their own surface -- a
