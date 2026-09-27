@@ -86,10 +86,25 @@ def main():
             inside = np.array([contains(poly, x, z) for x, z in zip(lx[box], lz[box])], dtype=bool)
             base = min(ground(x, z) for x, z in poly)
             roofs = lzv[box][inside] if inside.any() else np.array([])
-            height = float(np.percentile(roofs, 90) - base) if len(roofs) > 20 else None
-            if height is None or not (2.5 < height < 60):
-                levels = t.get("building:levels")
-                height = float(t.get("height") or (float(levels) * 3.5 + 1 if levels else 8))
+            # The survey doesn't mark which returns are roofs, so a tree over
+            # a building counts as roof: the median (not the top) is the
+            # roof, and OSM's height or storeys win where they're mapped.
+            big = t["building"] in ("university", "college", "dormitory")
+            # (Big buildings step up in wings: their upper quarter is the roof.)
+            height = float(np.percentile(roofs, 75 if big else 50) - base) if len(roofs) > 20 else None
+            levels = t.get("building:levels")
+            if t.get("height"):
+                height = float(t["height"])
+            elif levels:
+                height = float(levels) * 3.5 + 1
+            elif height is None or not (2.5 < height < 60):
+                height = 8.0
+            # And nothing small stands as a tower: a building no wider than a
+            # house is at most about one and a half times as tall as it is wide.
+            xs_, zs_ = [p[0] for p in poly], [p[1] for p in poly]
+            narrow = min(max(xs_) - min(xs_), max(zs_) - min(zs_))
+            if not big and not t.get("height") and not levels:
+                height = min(height, max(4.0, narrow * 1.5), 12.0)
             tris = triangulate(poly)
             out["buildings"].append({
                 "name": t.get("name", ""),

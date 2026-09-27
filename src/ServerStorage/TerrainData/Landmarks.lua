@@ -5,7 +5,7 @@ return {
 			name = "Hillcrest Hall",
 			kind = "dormitory",
 			base = 62.47,
-			height = 70.07,
+			height = 64.86,
 			points = {
 				{ 985.98, 850.52 },
 				{ 1052.43, 858.38 },
@@ -67,7 +67,7 @@ return {
 			name = "Davidson Hall",
 			kind = "university",
 			base = 29.12,
-			height = 64.88,
+			height = 53.57,
 			points = {
 				{ 1083.58, -264.61 },
 				{ 1078.39, -269.69 },
@@ -157,7 +157,7 @@ return {
 			name = "Saunders Hall",
 			kind = "university",
 			base = 41.17,
-			height = 49.54,
+			height = 49.44,
 			points = {
 				{ 1271.08, 466.91 },
 				{ 1342.09, 441.04 },
@@ -181,7 +181,7 @@ return {
 			name = "Derring Hall",
 			kind = "university",
 			base = 37.57,
-			height = 93.14,
+			height = 73.79,
 			points = {
 				{ 1055.82, -1372.12 },
 				{ 1074.78, -1352.71 },
@@ -243,7 +243,7 @@ return {
 			name = "Hahn Hall North",
 			kind = "university",
 			base = 36.36,
-			height = 89.18,
+			height = 84.46,
 			points = {
 				{ 813.20, -770.18 },
 				{ 795.00, -789.04 },
@@ -339,7 +339,7 @@ return {
 			name = "",
 			kind = "yes",
 			base = 45.22,
-			height = 31.63,
+			height = 27.29,
 			points = {
 				{ -901.59, -464.29 },
 				{ -860.56, -429.45 },
@@ -355,7 +355,7 @@ return {
 			name = "",
 			kind = "yes",
 			base = 35.92,
-			height = 28.26,
+			height = 20.97,
 			points = {
 				{ -816.71, -640.72 },
 				{ -795.00, -622.22 },
@@ -371,7 +371,7 @@ return {
 			name = "",
 			kind = "yes",
 			base = 62.35,
-			height = 48.47,
+			height = 28.57,
 			points = {
 				{ -1049.49, -1093.50 },
 				{ -1009.12, -1068.73 },
@@ -387,7 +387,7 @@ return {
 			name = "The Grove",
 			kind = "yes",
 			base = 54.95,
-			height = 74.16,
+			height = 42.86,
 			points = {
 				{ 383.52, 764.43 },
 				{ 347.65, 758.08 },
@@ -431,7 +431,7 @@ return {
 			name = "",
 			kind = "yes",
 			base = 46.21,
-			height = 66.65,
+			height = 42.86,
 			points = {
 				{ 429.04, 825.16 },
 				{ 472.45, 833.85 },
@@ -447,7 +447,7 @@ return {
 			name = "",
 			kind = "yes",
 			base = 56.61,
-			height = 38.70,
+			height = 35.71,
 			points = {
 				{ 505.84, 739.35 },
 				{ 532.21, 743.87 },
@@ -463,7 +463,7 @@ return {
 			name = "",
 			kind = "yes",
 			base = 56.41,
-			height = 54.23,
+			height = 42.86,
 			points = {
 				{ 890.09, 835.95 },
 				{ 894.18, 835.83 },
@@ -503,7 +503,7 @@ return {
 			name = "",
 			kind = "yes",
 			base = 27.46,
-			height = 24.50,
+			height = 18.65,
 			points = {
 				{ -45.97, -271.80 },
 				{ -54.58, -277.47 },
@@ -539,7 +539,7 @@ return {
 			name = "",
 			kind = "yes",
 			base = 49.22,
-			height = 28.57,
+			height = 20.78,
 			points = {
 				{ 517.08, 407.93 },
 				{ 517.94, 408.01 },
@@ -563,7 +563,7 @@ return {
 			name = "",
 			kind = "yes",
 			base = 48.05,
-			height = 28.57,
+			height = 19.29,
 			points = {
 				{ 325.02, 366.78 },
 				{ 343.00, 366.89 },
@@ -579,7 +579,7 @@ return {
 			name = "",
 			kind = "yes",
 			base = 16.53,
-			height = 75.21,
+			height = 11.57,
 			points = {
 				{ 459.69, 25.32 },
 				{ 473.14, 33.14 },
@@ -595,7 +595,7 @@ return {
 			name = "Solitude",
 			kind = "house",
 			base = 23.15,
-			height = 30.96,
+			height = 28.57,
 			points = {
 				{ 536.36, 16.23 },
 				{ 531.61, 13.49 },
@@ -635,7 +635,7 @@ return {
 			name = "",
 			kind = "yes",
 			base = 28.18,
-			height = 15.80,
+			height = 9.07,
 			points = {
 				{ 614.11, -102.04 },
 				{ 620.85, -97.72 },
@@ -655,7 +655,7 @@ return {
 			name = "Wright House",
 			kind = "university",
 			base = 32.72,
-			height = 22.28,
+			height = 20.49,
 			points = {
 				{ 743.05, -263.58 },
 				{ 734.56, -268.86 },
@@ -687,7 +687,7 @@ return {
 			name = "Williams Hall",
 			kind = "college",
 			base = 56.77,
-			height = 48.66,
+			height = 56.54,
 			points = {
 				{ 1237.59, -650.20 },
 				{ 1241.77, -654.13 },
@@ -759,7 +759,7 @@ return {
 			name = "Hahn Hall South",
 			kind = "university",
 			base = 37.58,
-			height = 74.89,
+			height = 72.64,
 			points = {
 				{ 994.28, -669.29 },
 				{ 983.73, -659.13 },
@@ -821,7 +821,7 @@ return {
 			name = "Robeson Hall",
 			kind = "university",
 			base = 44.83,
-			height = 63.13,
+			height = 59.92,
 			points = {
 				{ 953.38, -710.49 },
 				{ 976.80, -734.78 },
@@ -949,7 +949,7 @@ return {
 			name = "Pamplin Hall",
 			kind = "university",
 			base = 49.46,
-			height = 57.89,
+			height = 61.36,
 			points = {
 				{ 1160.85, -922.24 },
 				{ 1158.45, -925.02 },
@@ -1009,7 +1009,7 @@ return {
 			name = "Pamplin Hall",
 			kind = "university",
 			base = 50.14,
-			height = 71.50,
+			height = 61.36,
 			points = {
 				{ 1192.42, -890.13 },
 				{ 1172.76, -871.12 },
@@ -1033,7 +1033,7 @@ return {
 			name = "Holtzman Alumni Center",
 			kind = "university",
 			base = 63.43,
-			height = 47.78,
+			height = 41.00,
 			points = {
 				{ -270.06, -1221.78 },
 				{ -259.40, -1203.40 },
