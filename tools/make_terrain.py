@@ -182,9 +182,15 @@ def main():
     mat = np.full(ground.shape, "g", dtype="<U1")
     mat[np.array(wood_img) > 127] = "l"
     mat[np.array(sand_img) > 127] = "s"
-    # Paths and roads aren't painted at all: they're drawn on top as ribbons
-    # of parts (Builders/Paths), since terrain's 4-stud voxels are far too
-    # coarse for a path's edge. The grass runs under them.
+    # Paths and roads are drawn on top as ribbons of parts (Builders/Paths),
+    # since terrain's 4-stud voxels are far too coarse for a path's edge.
+    # Under them: Ground, coloured like the grass, which grows no blades to
+    # poke up through the paving -- a little wider than the path, so blades
+    # at the edge don't lean over it either (a mown border, in effect).
+    under = mask()
+    for el, t, width, _ in ways:
+        line(under, pts(el["geometry"]), width / cell_m + 1.5)
+    mat[(np.array(under) > 127) & np.isnan(water_top)] = "b"
     # The banks, as the photos show them: lawn mown to the water's edge, with
     # stones scattered along it.
     near_water = (distance(~(pond | creek)) * cell_m < 1.6) & ~(pond | creek)

@@ -259,6 +259,7 @@ local SURFACES = {
 local STEP = 4 -- studs between ground samples
 local LIFT = 0.12 -- how far the surface sits above the ground
 local THICK = 0.8 -- deep enough that uneven ground never shows beneath
+local SMOOTH = 0.15 -- studs of ground unevenness a merged piece may bridge
 
 local function way(parent, spec)
 	local look = SURFACES[spec.surface] or SURFACES.concrete
@@ -279,6 +280,33 @@ local function way(parent, spec)
 		local y = groundY(p) + LIFT
 		pts[i] = Vector3.new(p.X, if y == -math.huge then 0 else y, p.Z)
 	end
+	-- Merge runs where the ground is even: drop any point that sits within
+	-- SMOOTH of the straight line between its neighbours kept either side.
+	local kept = { pts[1] }
+	local i = 1
+	while i < #pts do
+		local j = i + 1
+		while j + 1 <= #pts do
+			local a, b = pts[i], pts[j + 1]
+			local ok = true
+			for k = i + 1, j do
+				local t = (pts[k] - a).Magnitude / math.max((b - a).Magnitude, 0.01)
+				local onLine = a:Lerp(b, t)
+				if math.abs(onLine.Y - pts[k].Y) > SMOOTH or (Vector3.new(onLine.X, 0, onLine.Z)
+					- Vector3.new(pts[k].X, 0, pts[k].Z)).Magnitude > 0.3 then
+					ok = false
+					break
+				end
+			end
+			if not ok then
+				break
+			end
+			j += 1
+		end
+		table.insert(kept, pts[j])
+		i = j
+	end
+	pts = kept
 	for i = 1, #pts - 1 do
 		local a, b = pts[i], pts[i + 1]
 		if (b - a).Magnitude > 0.05 then
