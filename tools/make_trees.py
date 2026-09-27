@@ -159,6 +159,45 @@ def main():
     # didn't see (planted since) are added.
     trees, matched, added, dropped = merge_inventory(trees, gx0, gz0, ground, W, H)
 
+    # Trees in odd places -- in the water, at its very edge, or on a path or
+    # road -- are the data's small misplacements (GPS, or a line drawn a
+    # little off): each moves to the nearest sensible spot within 8 m, and
+    # any with nowhere near is left out.
+    paths_img = Image.new("L", (W, H), 0)
+    widths = {"footway": 2.4, "path": 2.4, "cycleway": 3.0, "pedestrian": 3.0, "track": 3.0, "steps": 2.4,
+              "tertiary": 8, "secondary": 9, "unclassified": 6, "residential": 6, "service": 4}
+    for el in osm:
+        t = el.get("tags", {})
+        if t.get("highway") in widths and el.get("geometry") and not t.get("tunnel"):
+            ImageDraw.Draw(paths_img).line([gp(q) for q in el["geometry"]], fill=255,
+                                           width=max(1, int(round(widths[t["highway"]] / CELL))))
+    on_path = np.asarray(paths_img) > 127
+    odd = (distance(~water) <= 1.5 / CELL) | (distance(~on_path) <= 1.0 / CELL) | buildings
+    moved, dropped_odd = 0, 0
+    kept = []
+    for t in trees:
+        j = int((t[0] * M_PER_STUD - gx0) / CELL)
+        i = int((t[1] * M_PER_STUD - gz0) / CELL)
+        if not (0 <= i < H and 0 <= j < W) or not odd[i, j]:
+            kept.append(t)
+            continue
+        spot = None
+        for r in range(1, int(8 / CELL) + 1):
+            ring = [(i + di, j + dj) for di in range(-r, r + 1) for dj in range(-r, r + 1)
+                    if max(abs(di), abs(dj)) == r and 0 <= i + di < H and 0 <= j + dj < W and not odd[i + di, j + dj]]
+            if ring:
+                spot = min(ring, key=lambda c: (c[0] - i) ** 2 + (c[1] - j) ** 2)
+                break
+        if spot is None:
+            dropped_odd += 1
+            continue
+        si, sj = spot
+        kept.append(((gx0 + (sj + 0.5) * CELL) / M_PER_STUD, (gz0 + (si + 0.5) * CELL) / M_PER_STUD,
+                     (ground[si, sj] - BASE_M) / M_PER_STUD) + tuple(t[3:]))
+        moved += 1
+    trees = kept
+    print(f"odd places: {moved} trees moved off water/paths, {dropped_odd} with nowhere near left out")
+
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "Trees.txt").write_text("\n".join(f"{x:.1f} {z_:.1f} {y:.1f} {h:.1f} {c:.1f} {k} {sp}"
                                              for x, z_, y, h, c, k, sp in trees))

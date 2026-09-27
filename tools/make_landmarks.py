@@ -100,8 +100,38 @@ def main():
                 "triangles": [list(tri) for tri in tris],
             })
 
+    # Path segments, for squaring benches to the path beside them.
+    segments = []
+    for el in osm:
+        t = el.get("tags", {})
+        if t.get("highway") in ("footway", "path", "cycleway", "pedestrian", "tertiary", "service", "unclassified",
+                                "residential") and el.get("geometry") and not t.get("tunnel"):
+            line_ = [metres(p) for p in el["geometry"]]
+            segments += list(zip(line_, line_[1:]))
+
+    def square_to_path(mx, mz, yaw, reach=8.0):
+        """The yaw, turned to the nearer of the two directions square to the
+        nearest path segment (within reach), so a bench faces across it."""
+        best, bd = None, reach
+        for (ax, az), (bx, bz) in segments:
+            vx, vz = bx - ax, bz - az
+            ll = vx * vx + vz * vz
+            if ll < 1e-6:
+                continue
+            f = max(0.0, min(1.0, ((mx - ax) * vx + (mz - az) * vz) / ll))
+            d = math.hypot(mx - (ax + f * vx), mz - (az + f * vz))
+            if d < bd:
+                best, bd = (vx, vz), d
+        if not best:
+            return yaw
+        along = math.atan2(best[0], -best[1])  # the path's own yaw
+        options = [along + math.pi / 2, along - math.pi / 2]
+        return min(options, key=lambda o: abs((o - yaw + math.pi) % (2 * math.pi) - math.pi))
+
     # --- furniture, from OSM ---
     def add(kind, mx, mz, yaw, guess):
+        if kind in ("bench", "picnic", "bin"):
+            yaw = square_to_path(mx, mz, yaw)
         out["furniture"].append({"kind": kind, "x": mx / M_PER_STUD, "z": mz / M_PER_STUD,
                                  "y": (ground(mx, mz) - BASE_M) / M_PER_STUD, "yaw": yaw, "guess": guess})
 

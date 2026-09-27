@@ -368,21 +368,28 @@ local function way(parent, spec)
 	for k = 1, #kept - 1 do
 		piece(parent, kept[k], kept[k + 1], spec.width, colour, material)
 	end
-	-- Round pads at the original bends, level with the ground there.
+	-- Round pads at the original bends, their tops just under the path's own
+	-- surface there, so they fill the gap at the bend without standing proud.
 	for k = 2, #spec.points - 1 do
 		local p = Vector3.new(spec.points[k][1], 0, spec.points[k][2])
-		local _, c = sides(p, Vector3.new(0, 0, 1), spec.width)
-		local high = c
-		for a = 0, 3 do
-			local q = p + Vector3.new(math.cos(a * math.pi / 2), 0, math.sin(a * math.pi / 2)) * spec.width / 2
-			local g = groundY(q)
-			if g ~= -math.huge and g - c < 3 then
-				high = math.max(high, g)
+		local best, bd = nil, math.huge
+		for _, node in ipairs(pts) do
+			local d = (node.p - p).Magnitude
+			if d < bd then
+				best, bd = node, d
 			end
 		end
-		part(parent, "Joint", Vector3.new(THICK, spec.width, spec.width),
-			CFrame.new(p.X, high + LIFT - THICK / 2, p.Z) * CFrame.Angles(0, 0, math.rad(90)), colour, material,
-			{ Shape = Enum.PartType.Cylinder, CanCollide = false })
+		if best then
+			-- Tilted like the path there, so neither side stands proud.
+			local prev = Vector3.new(spec.points[k - 1][1], 0, spec.points[k - 1][2])
+			local nxt = Vector3.new(spec.points[k + 1][1], 0, spec.points[k + 1][2])
+			local dir = (nxt - prev).Magnitude > 0.01 and (nxt - prev).Unit or Vector3.new(0, 0, 1)
+			local tilt = CFrame.lookAt(Vector3.zero, dir) * CFrame.Angles(0, 0, math.atan(best.bank))
+			local top = best.y - 0.03
+			part(parent, "Joint", Vector3.new(THICK, spec.width, spec.width),
+				CFrame.new(p.X, top, p.Z) * tilt * CFrame.new(0, -THICK / 2, 0) * CFrame.Angles(0, 0, math.rad(90)),
+				colour, material, { Shape = Enum.PartType.Cylinder, CanCollide = false })
+		end
 	end
 end
 

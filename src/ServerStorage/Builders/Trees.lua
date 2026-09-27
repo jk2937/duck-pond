@@ -156,18 +156,24 @@ local function willow(model, base, h, r, rng)
 		limb(model, fork, tip, trunkWidth * 0.55, WILLOW_BARK)
 	end
 
-	-- The crown: a flattened dome in the middle, and a ring of lower, flatter
-	-- mounds round the edge, so the whole crown droops.
-	ellipsoid(model, Vector3.new(r * 1.6, h * 0.22, r * 1.6), CFrame.new(fork.X, crownTop - h * 0.12, fork.Z), leaves)
-	local ring = math.clamp(math.floor(r / 3), 5, 9)
-	for k = 1, ring do
-		local a = spin + (k + 0.5) / ring * math.pi * 2 + rng:NextNumber(-0.2, 0.2)
-		for step, out in ipairs({ r * 0.5, r * 0.82 }) do
-			local c = Vector3.new(fork.X + math.cos(a) * out, under(out) + h * 0.08, fork.Z + math.sin(a) * out)
-			local wide = r * rng:NextNumber(0.9, 1.1) * (1.1 - step * 0.1)
-			local size = Vector3.new(wide, h * 0.2, wide * 0.85)
-			ellipsoid(model, size, CFrame.new(c) * CFrame.Angles(0, -a, 0), leaves:Lerp(pale, rng:NextNumber(0.15, 0.45)))
-		end
+	-- The crown: an off-centre dome, and clumps of every size scattered
+	-- over it at random -- not in rings, which read as a starfish from above
+	-- -- lower toward the edge, so the whole crown droops, and lopsided,
+	-- as a real willow is.
+	local lopsided = Vector3.new(rng:NextNumber(-0.2, 0.2) * r, 0, rng:NextNumber(-0.2, 0.2) * r)
+	ellipsoid(model, Vector3.new(r * rng:NextNumber(1.3, 1.7), h * 0.22, r * rng:NextNumber(1.3, 1.7)),
+		CFrame.new(fork.X + lopsided.X, crownTop - h * 0.12, fork.Z + lopsided.Z) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0),
+		leaves)
+	local clumps = math.clamp(math.floor(r * 0.9), 8, 22)
+	for _ = 1, clumps do
+		local a = rng:NextNumber(0, math.pi * 2)
+		local out = r * math.sqrt(rng:NextNumber(0.1, 0.95))
+		local c = Vector3.new(fork.X + lopsided.X + math.cos(a) * out, under(out) + h * rng:NextNumber(0.02, 0.12),
+			fork.Z + lopsided.Z + math.sin(a) * out)
+		local wide = r * rng:NextNumber(0.45, 1.0)
+		local size = Vector3.new(wide, h * rng:NextNumber(0.13, 0.22), wide * rng:NextNumber(0.6, 1))
+		ellipsoid(model, size, CFrame.new(c) * CFrame.Angles(math.rad(rng:NextNumber(-10, 10)), rng:NextNumber(0, math.pi * 2), 0),
+			leaves:Lerp(pale, rng:NextNumber(0.1, 0.45)))
 	end
 
 	-- The curtains: strands falling from inside the crown, spread over it,
@@ -178,9 +184,9 @@ local function willow(model, base, h, r, rng)
 	for _ = 1, strands do
 		local a = rng:NextNumber(0, math.pi * 2)
 		local out = r * math.sqrt(rng:NextNumber(0.3, 1.05))
-		local x, z = fork.X + math.cos(a) * out, fork.Z + math.sin(a) * out
+		local x, z = fork.X + lopsided.X + math.cos(a) * out, fork.Z + lopsided.Z + math.sin(a) * out
 		local top = under(out) + h * 0.14 -- starts high in the foliage, so the curtain hides the crown's edge
-		local length = h * rng:NextNumber(0.2, 0.42) * (0.5 + out / r)
+		local length = h * rng:NextNumber(0.12, 0.45) * (0.5 + out / r) -- ragged: some short, some long
 		local bottom = math.max(floor, top - length)
 		local span = top - bottom
 		if span > 1.5 then
@@ -196,23 +202,33 @@ local function willow(model, base, h, r, rng)
 	end
 end
 
--- A conifer -- hemlock, pine, spruce: a trunk the whole way up, and a soft
--- cone of overlapping, flattened layers, narrowing to a point, the lowest
--- clear of the ground.
+-- A conifer -- hemlock, pine, spruce: a trunk to just under the top, and a
+-- rough cone of flattened layers, narrowing upward -- each layer off-centre a
+-- little, its own size and tilt, and now and then a gap or a lopsided one,
+-- so no two trees are the same stack. The lowest is clear of the ground.
 local function conifer(model, base, h, r, rng)
-	trunk(model, base, h * 0.95, math.max(0.9, h * 0.035), barkFor(BARK), CFrame.new())
 	local leaves = leafFor("conifer", rng)
 	local floor = base.Y + clearance(h)
-	local layers = 7
+	local layers = rng:NextInteger(5, 8)
+	local lean = Vector3.new(rng:NextNumber(-0.04, 0.04), 0, rng:NextNumber(-0.04, 0.04)) -- the whole tree, a touch
+	local topY = 0
 	for k = 0, layers - 1 do
 		local t = k / layers
-		local width = r * 2.1 * (1 - t * 0.88)
-		local depth = h * 0.2
-		local y = math.max(floor - base.Y + depth / 2, h * (0.18 + 0.78 * t))
-		ellipsoid(model, Vector3.new(width, depth, width * rng:NextNumber(0.9, 1)),
-			CFrame.new(base + Vector3.new(0, y, 0)) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0),
-			leaves:Lerp(Color3.new(0, 0, 0), rng:NextNumber(0, 0.1)))
+		if k > 0 and k < layers - 1 and rng:NextNumber() < 0.12 then
+			continue -- a gap
+		end
+		local width = r * 2.1 * (1 - t * 0.85) * rng:NextNumber(0.8, 1.15)
+		local depth = h * rng:NextNumber(0.15, 0.24)
+		local y = math.max(floor - base.Y + depth / 2, h * (0.18 + 0.74 * t) + rng:NextNumber(-0.02, 0.02) * h)
+		local off = Vector3.new(rng:NextNumber(-0.12, 0.12) * width, 0, rng:NextNumber(-0.12, 0.12) * width) + lean * y
+		ellipsoid(model, Vector3.new(width, depth, width * rng:NextNumber(0.75, 1)),
+			CFrame.new(base + off + Vector3.new(0, y, 0))
+				* CFrame.Angles(math.rad(rng:NextNumber(-6, 6)), rng:NextNumber(0, math.pi), math.rad(rng:NextNumber(-6, 6))),
+			leaves:Lerp(Color3.new(0, 0, 0), rng:NextNumber(0, 0.12)))
+		topY = math.max(topY, y + depth / 2)
 	end
+	-- The trunk stops inside the top layer, never poking out of it.
+	trunk(model, base, math.max(2, topY - h * 0.1), math.max(0.9, h * 0.035), barkFor(BARK), CFrame.new())
 end
 
 -- A deciduous conifer -- bald cypress, dawn redwood, larch: a straight
