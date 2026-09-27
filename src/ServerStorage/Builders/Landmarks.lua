@@ -401,9 +401,11 @@ function Landmarks.build()
 		local statsModule = ServerStorage.TerrainData:FindFirstChild("TreeStats")
 		if statsModule then
 			local st = require(statsModule:Clone())
-			local text = string.format("THE TREES: %d\n\n%d  lidar, named by VT's inventory\n"
-				.. "%d  VT inventory only (newer, or hidden)\n%d  lidar only (no species)\n"
-				.. "%d  removed since the 2017 scan\n\nVT photos: %d, of %d trees",
+			-- Lidar trees are found, and matched to the inventory, by estimate:
+			-- those counts are approximate. The photos are counted exactly.
+			local text = string.format("THE TREES: about %d (approximate)\n\n~%d  lidar, named by VT's inventory\n"
+				.. "~%d  VT inventory only (newer, or hidden)\n~%d  lidar only, estimated (no species)\n"
+				.. "~%d  removed since the 2017 scan\n\nVT photos: %d, of %d trees",
 				st.total, st.both, st.inventoryOnly, st.lidarOnly, st.removed, st.photos, st.photoTrees)
 			local other = spawn.CFrame * CFrame.new(-7, 0, -2)
 			local oy = groundY(other.X, other.Z, other.Y)
