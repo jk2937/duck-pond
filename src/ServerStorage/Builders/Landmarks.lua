@@ -124,13 +124,16 @@ local function building(parent, spec)
 	return model
 end
 
--- Solitude, from the photos: white clapboard, two storeys, a green metal
--- gable roof, red brick chimneys at the gable ends.
+-- Solitude, from the photos: a white clapboard house, two storeys, a
+-- pitched green metal roof, red brick chimneys at the gable ends. Built as
+-- a clean rectangle along the footprint's long axis (the mapped outline has
+-- wings and porches that a simple roof can't sit on), no wider than a house.
 local function solitude(parent, spec)
 	local model = Instance.new("Model")
 	model.Name = "Solitude"
 	model.Parent = parent
-	-- The footprint's long axis, for the roof's ridge.
+
+	-- The footprint's middle and long axis.
 	local cx, cz = 0, 0
 	for _, p in ipairs(spec.points) do
 		cx += p[1]
@@ -154,46 +157,60 @@ local function solitude(parent, spec)
 		minA, maxA = math.min(minA, d:Dot(along)), math.max(maxA, d:Dot(along))
 		minC, maxC = math.min(minC, d:Dot(across)), math.max(maxC, d:Dot(across))
 	end
-	local length, width = maxA - minA, maxC - minC
+	local length = math.min(maxA - minA, 16 / 0.28) -- at most 16 m long
+	local width = math.min(maxC - minC, 8.5 / 0.28) -- and 8.5 m deep
 	local centre = Vector3.new(cx, 0, cz) + along * (minA + maxA) / 2 + across * (minC + maxC) / 2
 	local ground = groundY(centre.X, centre.Z, spec.base)
-	local eaves = ground + 6.2 / 0.28 -- two storeys
-	local facing = CFrame.fromMatrix(Vector3.zero, along, Vector3.yAxis, -across) -- X along the ridge
+	-- Lowest ground under the corners, so the walls never float.
+	for _, sa in ipairs({ -1, 1 }) do
+		for _, sc in ipairs({ -1, 1 }) do
+			local q = centre + along * sa * length / 2 + across * sc * width / 2
+			ground = math.min(ground, groundY(q.X, q.Z, ground))
+		end
+	end
+	local eaves = ground + 6.2 / 0.28
+	-- X along the ridge, Z across it (fromMatrix takes X and Y; Z follows).
+	local basis = CFrame.fromMatrix(Vector3.zero, along, Vector3.yAxis).Rotation
+	local function at(a, y, c)
+		return centre + along * a + across * c + Vector3.new(0, y, 0)
+	end
 
-	-- The walls: round the real footprint, clapboard white.
-	local pts = {}
-	for _, p in ipairs(spec.points) do
-		table.insert(pts, Vector3.new(p[1], eaves, p[2]))
-	end
-	for i = 1, #pts do
-		wall(model, pts[i], pts[i % #pts + 1], ground - 4, eaves, 1, WHITE_BOARD, Enum.Material.WoodPlanks)
-	end
-	for _, t in ipairs(spec.triangles) do
-		triangle(model, pts[t[1]], pts[t[2]], pts[t[3]], 0.6, WHITE_BOARD, Enum.Material.SmoothPlastic)
-	end
+	-- The walls: one block, clapboard white.
+	local bottom = ground - 3
+	part(model, "Walls", Vector3.new(length, eaves - bottom, width),
+		CFrame.new(centre.X, (eaves + bottom) / 2, centre.Z) * basis, WHITE_BOARD, Enum.Material.WoodPlanks)
 
-	-- The roof: two pitched slabs over the long axis, and the gable ends.
-	local pitch = math.rad(33)
+	-- The roof: two slabs from the eaves (with a little overhang) up to the
+	-- ridge, meeting exactly along it.
+	local pitch = math.rad(35)
 	local rise = (width / 2) * math.tan(pitch)
-	local slope = (width / 2) / math.cos(pitch) + 1.5
-	for _, s in ipairs({ -1, 1 }) do
-		local mid = centre + across * s * width / 4 + Vector3.new(0, eaves + rise / 2, 0)
-		-- Local -Z points across to this slab's side; tilt that edge down.
-		local cf = CFrame.new(mid) * facing.Rotation * CFrame.Angles(-s * pitch, 0, 0)
-		part(model, "Roof", Vector3.new(length + 2, 0.6, slope), cf, GREEN_ROOF, Enum.Material.Metal)
+	local ridgeY = eaves + rise
+	local overhang = 1.5
+	for _, sc in ipairs({ -1, 1 }) do
+		local ridge = at(0, eaves + rise, 0)
+		local eave = at(0, eaves, sc * width / 2)
+		local down = (eave - ridge).Unit
+		local lower = eave + down * overhang
+		local mid = (ridge + lower) / 2
+		local slope = (lower - ridge).Magnitude
+		local normal = along:Cross(down).Unit
+		if normal.Y < 0 then
+			normal = -normal
+		end
+		local cf = CFrame.fromMatrix(mid + normal * 0.3, along, normal)
+		part(model, "Roof", Vector3.new(length + overhang * 2, 0.6, slope), cf, GREEN_ROOF, Enum.Material.SmoothPlastic)
 	end
-	for _, s in ipairs({ -1, 1 }) do
-		local e = centre + along * s * length / 2
-		local left = e - across * width / 2 + Vector3.new(0, eaves, 0)
-		local right = e + across * width / 2 + Vector3.new(0, eaves, 0)
-		local apex = e + Vector3.new(0, eaves + rise, 0)
-		triangle(model, left, right, apex, 1, WHITE_BOARD, Enum.Material.WoodPlanks)
-		-- The chimney, just outside the gable.
-		local chimneyBase = e + along * s * 1.5
-		local chimneyTop = eaves + rise + 4
-		part(model, "Chimney", Vector3.new(3.2, chimneyTop - ground + 2, 5),
-			CFrame.new(chimneyBase.X, (chimneyTop + ground - 2) / 2, chimneyBase.Z) * facing.Rotation, BRICK,
-			Enum.Material.Brick)
+	-- The gable ends: triangles of clapboard, flush with the end walls.
+	for _, sa in ipairs({ -1, 1 }) do
+		triangle(model, at(sa * length / 2, eaves, -width / 2), at(sa * length / 2, eaves, width / 2),
+			at(sa * length / 2, ridgeY, 0), 1, WHITE_BOARD, Enum.Material.WoodPlanks)
+	end
+	-- A chimney in each gable wall, up through the roof past the ridge.
+	for _, sa in ipairs({ -1, 1 }) do
+		local base = at(sa * (length / 2 - 1.2), 0, 0)
+		local top = ridgeY + 4
+		part(model, "Chimney", Vector3.new(3.4, top - bottom, 5), CFrame.new(base.X, (top + bottom) / 2, base.Z) * basis,
+			BRICK, Enum.Material.Brick)
 	end
 	return model
 end
