@@ -33,6 +33,25 @@ local SWIM_SPEED = 3.2 -- studs/s
 local WALK_SPEED = 2.2
 local TURN = 2.2 -- radians/s
 local CURIOUS = 45 -- studs: a player this close at the water gets visitors
+
+-- Flocking, after Duck Duck Drift's (itself after the old xfishtank
+-- screensaver): each bird on the water steers by its neighbours within
+-- NEIGHBOR_RADIUS only -- keep apart (strong, or they jam into a pile),
+-- match their heading, drift toward their middle -- plus its own pull
+-- toward wherever it's going and a slow wander. Only neighbours, so the
+-- birds form loose, shifting little rafts rather than one blob. Same
+-- species hang together more than mixed ones.
+local BOID = {
+	NEIGHBOR_RADIUS = 18,
+	SEPARATION_RADIUS = 3.5,
+	SEPARATION_K = 25,
+	ALIGN_K = 0.8,
+	COHESION_K = 0.12,
+	OTHER_SPECIES = 0.3, -- how much a different species counts, for align and cohesion
+	SEEK_K = 1.2, -- the pull toward its goal
+	WANDER_K = 0.8,
+	MAX_ACCEL = 8, -- studs/s^2
+}
 local rng = Random.new()
 local FEED = { CRUMBS = 5, RANGE = 160, LIFETIME = 45, COOLDOWN = 1.2, RUSH = 1.8 }
 
@@ -240,8 +259,10 @@ end
 
 local birds = {}
 
+-- A raft of birds shares one destination (bird.flock.target), so they
+-- travel together; the boid rules keep them spaced and moving as one.
 local function newTarget(bird)
-	local here = bird.position
+	local here = if bird.flock then bird.flock.centre or bird.position else bird.position
 	for _ = 1, 20 do
 		local c = pondCells[rng:NextInteger(1, #pondCells)]
 		if (c - here).Magnitude < 70 and math.abs(c.Y - bird.level) < 0.5
@@ -252,9 +273,26 @@ local function newTarget(bird)
 	return here
 end
 
+local FLOCK_SIZE = { 3, 7 }
 for _, group in ipairs(POPULATION) do
+	local flock, left = nil, 0
 	for _ = 1, group.count do
-		local c = pondCells[rng:NextInteger(1, #pondCells)]
+		-- Start a new raft every few birds, the rest spawning near its first.
+		if left <= 0 then
+			local home = pondCells[rng:NextInteger(1, #pondCells)]
+			flock = { home = home, centre = home }
+			left = rng:NextInteger(FLOCK_SIZE[1], FLOCK_SIZE[2])
+		end
+		left -= 1
+		local c = flock.home
+		for _ = 1, 20 do
+			local near = flock.home + Vector3.new(rng:NextNumber(-10, 10), 0, rng:NextNumber(-10, 10))
+			local level = waterAt(near.X, near.Z)
+			if level and math.abs(level - flock.home.Y) < 0.5 then
+				c = Vector3.new(near.X, level, near.Z)
+				break
+			end
+		end
 		local heading = rng:NextNumber(0, math.pi * 2)
 		local bird = {
 			kind = group.species,
@@ -262,6 +300,8 @@ for _, group in ipairs(POPULATION) do
 			position = Vector3.new(c.X, c.Y, c.Z),
 			heading = heading,
 			mode = "swim",
+			vel = Vector3.zero,
+			flock = flock,
 			until_ = 0,
 			nextCall = os.clock() + rng:NextNumber(5, 60),
 			phase = rng:NextNumber(0, 10),
@@ -271,7 +311,9 @@ for _, group in ipairs(POPULATION) do
 			bird.mode = "graze"
 		end
 		bird.model = makeBird(group.species, CFrame.new(bird.position))
-		bird.target = newTarget(bird)
+		if not flock.target then
+			flock.target = newTarget(bird)
+		end
 		table.insert(birds, bird)
 	end
 end
@@ -387,6 +429,17 @@ local t = 0
 RunService.Heartbeat:Connect(function(dt)
 	t += dt
 	local now = os.clock()
+	-- Each raft's middle, for its arrival check.
+	local sums = {}
+	for _, bird in ipairs(birds) do
+		local f = bird.flock
+		sums[f] = sums[f] or { Vector3.zero, 0 }
+		sums[f][1] += bird.position
+		sums[f][2] += 1
+	end
+	for f, sum in pairs(sums) do
+		f.centre = sum[1] / sum[2]
+	end
 	-- Old crumbs sink.
 	for i = #crumbs, 1, -1 do
 		if now - crumbs[i].born > FEED.LIFETIME then
@@ -435,7 +488,7 @@ RunService.Heartbeat:Connect(function(dt)
 			-- wherever it was going.
 			local crumb = nearestCrumb(bird)
 			local person = if crumb then nil else curiousAbout(bird)
-			local goal = bird.target
+			local goal = bird.flock.target
 			local speed = SWIM_SPEED
 			if crumb then
 				goal = Vector3.new(crumb.part.Position.X, bird.position.Y, crumb.part.Position.Z)
@@ -457,23 +510,71 @@ RunService.Heartbeat:Connect(function(dt)
 				end
 			end
 			local d = goal - bird.position
-			if Vector3.new(d.X, 0, d.Z).Magnitude < 1 then
-				if not person and not crumb then
-					if bird.mode == "swim" and rng:NextNumber() < 0.3 then
-						bird.mode = "tip"
-						bird.until_ = now + rng:NextNumber(2, 4)
+			-- The raft has arrived when its middle reaches the spot: a new one
+			-- for all of them, and now and then a bird tips up to feed.
+			local fd = bird.flock.target - bird.flock.centre
+			if not person and not crumb and Vector3.new(fd.X, 0, fd.Z).Magnitude < 8 then
+				bird.flock.target = newTarget(bird)
+			end
+			if Vector3.new(d.X, 0, d.Z).Magnitude < 10 and bird.mode == "swim" and not crumb
+				and rng:NextNumber() < 0.15 * dt then
+				bird.mode = "tip"
+				bird.until_ = now + rng:NextNumber(2, 4)
+			end
+			if bird.mode == "swim" then
+				-- The boid rules: seek the goal, keep apart, align, cohere,
+				-- wander -- summed, capped, and applied to the velocity.
+				local flatD = Vector3.new(d.X, 0, d.Z)
+				local want = if flatD.Magnitude > 0.5 then flatD.Unit * speed else Vector3.zero
+				local accel = (want - bird.vel) * BOID.SEEK_K
+				local sep, avgVel, avgPos, weight = Vector3.zero, Vector3.zero, Vector3.zero, 0
+				for _, other in ipairs(birds) do
+					if other ~= bird and other.mode ~= "graze" and math.abs(other.level - bird.level) < 0.5 then
+						local off = bird.position - other.position
+						local dist = Vector3.new(off.X, 0, off.Z).Magnitude
+						if dist < BOID.NEIGHBOR_RADIUS then
+							if dist < BOID.SEPARATION_RADIUS and dist > 0.01 then
+								sep += Vector3.new(off.X, 0, off.Z).Unit * (BOID.SEPARATION_RADIUS - dist) / BOID.SEPARATION_RADIUS
+							end
+							local w = if other.kind == bird.kind then 1 else BOID.OTHER_SPECIES
+							avgVel += other.vel * w
+							avgPos += other.position * w
+							weight += w
+						end
 					end
-					bird.target = newTarget(bird)
 				end
-			elseif bird.mode == "swim" and turnToward(bird, goal, dt) then
-				local step = Vector3.new(d.X, 0, d.Z).Unit * math.min(speed * dt, d.Magnitude)
-				local next = bird.position + step
+				accel += sep * BOID.SEPARATION_K
+				if weight > 0 and not crumb then
+					avgVel /= weight
+					avgPos /= weight
+					accel += (avgVel - bird.vel) * BOID.ALIGN_K
+					accel += Vector3.new(avgPos.X - bird.position.X, 0, avgPos.Z - bird.position.Z) * BOID.COHESION_K
+				end
+				local w = math.noise(bird.phase, t * 0.15) * math.pi * 2
+				accel += Vector3.new(math.cos(w), 0, math.sin(w)) * BOID.WANDER_K
+				if accel.Magnitude > BOID.MAX_ACCEL then
+					accel = accel.Unit * BOID.MAX_ACCEL
+				end
+				bird.vel += accel * dt
+				if bird.vel.Magnitude > speed then
+					bird.vel = bird.vel.Unit * speed
+				end
+				local next = bird.position + bird.vel * dt
 				local level = waterAt(next.X, next.Z)
 				if level and math.abs(level - bird.level) < 0.5 then
 					bird.position = next
 				else
-					bird.target = newTarget(bird)
+					-- The bank: turn back.
+					bird.vel = -bird.vel * 0.3
 				end
+				-- Face where it's swimming.
+				if bird.vel.Magnitude > 0.3 then
+					local wantHeading = math.atan2(-bird.vel.X, -bird.vel.Z)
+					local diff = (wantHeading - bird.heading + math.pi) % (math.pi * 2) - math.pi
+					bird.heading += math.clamp(diff, -TURN * dt, TURN * dt)
+				end
+			else
+				bird.vel *= math.max(0, 1 - 3 * dt)
 			end
 			if bird.mode == "tip" then
 				-- Bottoms up: feeding off the bottom.
