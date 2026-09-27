@@ -203,28 +203,22 @@ local function willow(model, base, h, r, rng)
 end
 
 -- A conifer -- hemlock, pine, spruce: a trunk to just under the top, and a
--- rough cone of flattened layers, narrowing upward -- each layer off-centre a
--- little, its own size and tilt, and now and then a gap or a lopsided one,
--- so no two trees are the same stack. The lowest is clear of the ground.
+-- cone of flattened layers narrowing to a point, the lowest clear of the
+-- ground. Each layer is nudged a little sideways -- left, right, forward or
+-- back -- so the stack isn't perfectly straight; heights and turns stay even.
 local function conifer(model, base, h, r, rng)
 	local leaves = leafFor("conifer", rng)
 	local floor = base.Y + clearance(h)
-	local layers = rng:NextInteger(5, 8)
-	local lean = Vector3.new(rng:NextNumber(-0.04, 0.04), 0, rng:NextNumber(-0.04, 0.04)) -- the whole tree, a touch
+	local layers = 7
 	local topY = 0
 	for k = 0, layers - 1 do
 		local t = k / layers
-		if k > 0 and k < layers - 1 and rng:NextNumber() < 0.12 then
-			continue -- a gap
-		end
-		local width = r * 2.1 * (1 - t * 0.85) * rng:NextNumber(0.8, 1.15)
-		local depth = h * rng:NextNumber(0.15, 0.24)
-		local y = math.max(floor - base.Y + depth / 2, h * (0.18 + 0.74 * t) + rng:NextNumber(-0.02, 0.02) * h)
-		local off = Vector3.new(rng:NextNumber(-0.12, 0.12) * width, 0, rng:NextNumber(-0.12, 0.12) * width) + lean * y
-		ellipsoid(model, Vector3.new(width, depth, width * rng:NextNumber(0.75, 1)),
-			CFrame.new(base + off + Vector3.new(0, y, 0))
-				* CFrame.Angles(math.rad(rng:NextNumber(-6, 6)), rng:NextNumber(0, math.pi), math.rad(rng:NextNumber(-6, 6))),
-			leaves:Lerp(Color3.new(0, 0, 0), rng:NextNumber(0, 0.12)))
+		local width = r * 2.1 * (1 - t * 0.88)
+		local depth = h * 0.2
+		local y = math.max(floor - base.Y + depth / 2, h * (0.18 + 0.78 * t))
+		local nudge = Vector3.new(rng:NextNumber(-0.08, 0.08) * width, 0, rng:NextNumber(-0.08, 0.08) * width)
+		ellipsoid(model, Vector3.new(width, depth, width), CFrame.new(base + nudge + Vector3.new(0, y, 0)),
+			leaves:Lerp(Color3.new(0, 0, 0), rng:NextNumber(0, 0.1)))
 		topY = math.max(topY, y + depth / 2)
 	end
 	-- The trunk stops inside the top layer, never poking out of it.
@@ -243,7 +237,8 @@ local function cypress(model, base, h, r, rng)
 		local t = k / tiers
 		local y = math.max(floor - base.Y + h * 0.08, h * (0.2 + 0.75 * t))
 		local width = r * 1.7 * (1 - t * 0.85)
-		ellipsoid(model, Vector3.new(width, h * 0.2, width), CFrame.new(base + Vector3.new(0, y, 0)),
+		local nudge = Vector3.new(rng:NextNumber(-0.08, 0.08) * width, 0, rng:NextNumber(-0.08, 0.08) * width)
+		ellipsoid(model, Vector3.new(width, h * 0.2, width), CFrame.new(base + nudge + Vector3.new(0, y, 0)),
 			leaves:Lerp(Color3.fromRGB(150, 176, 100), rng:NextNumber(0, 0.2)))
 	end
 end
