@@ -216,7 +216,7 @@ local function conifer(model, base, h, r, rng)
 		local width = r * 2.1 * (1 - t * 0.88)
 		local depth = h * 0.2
 		local y = math.max(floor - base.Y + depth / 2, h * (0.18 + 0.78 * t))
-		local nudge = Vector3.new(rng:NextNumber(-0.08, 0.08) * width, 0, rng:NextNumber(-0.08, 0.08) * width)
+		local nudge = Vector3.new(rng:NextNumber(-0.04, 0.04) * width, 0, rng:NextNumber(-0.04, 0.04) * width)
 		ellipsoid(model, Vector3.new(width, depth, width), CFrame.new(base + nudge + Vector3.new(0, y, 0)),
 			leaves:Lerp(Color3.new(0, 0, 0), rng:NextNumber(0, 0.1)))
 		topY = math.max(topY, y + depth / 2)
@@ -229,18 +229,21 @@ end
 -- trunk, a narrow cone of soft, light, feathery green (the tree over the
 -- creek in the photos).
 local function cypress(model, base, h, r, rng)
-	trunk(model, base, h * 0.95, math.max(1, h * 0.05), Color3.fromRGB(128, 84, 60), CFrame.new())
 	local leaves = leafFor("cypress", rng)
 	local floor = base.Y + clearance(h)
 	local tiers = 6
+	local topY = 0
 	for k = 0, tiers - 1 do
 		local t = k / tiers
 		local y = math.max(floor - base.Y + h * 0.08, h * (0.2 + 0.75 * t))
 		local width = r * 1.7 * (1 - t * 0.85)
-		local nudge = Vector3.new(rng:NextNumber(-0.08, 0.08) * width, 0, rng:NextNumber(-0.08, 0.08) * width)
+		local nudge = Vector3.new(rng:NextNumber(-0.04, 0.04) * width, 0, rng:NextNumber(-0.04, 0.04) * width)
 		ellipsoid(model, Vector3.new(width, h * 0.2, width), CFrame.new(base + nudge + Vector3.new(0, y, 0)),
 			leaves:Lerp(Color3.fromRGB(150, 176, 100), rng:NextNumber(0, 0.2)))
+		topY = math.max(topY, y + h * 0.1)
 	end
+	-- The trunk stops inside the top tier, never poking out of it.
+	trunk(model, base, math.max(2, topY - h * 0.1), math.max(1, h * 0.05), Color3.fromRGB(128, 84, 60), CFrame.new())
 end
 
 -- A small ornamental -- cherry, crabapple, dogwood, serviceberry: a short
