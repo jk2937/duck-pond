@@ -45,3 +45,18 @@ then save the place. Visit notes go in `docs/VISIT_CHECKLIST.md`.
   smooth ribbon of thin parts along each OSM line, sitting just on the
   ground, with round joints at bends, real widths and a proper paving
   material -- and leave the terrain under them as ground.
+
+## Where things stand (2026-09-27)
+
+Done since the stages above: VT Campus Tree Inventory merged into the trees
+(species, sizes; 152 misplaced trees moved off water and paths); paths as
+ground-hugging ribbons; real-time sun; cinematic camera (11 shots, studded
+button); ducks flock in rafts (boids, after Duck Duck Drift); Solitude
+rebuilt as a clean gabled house; tower buildings fixed.
+
+Next, in order:
+1. Go through data/photos/vt_trees (1,081 VT photos of 890 trees, indexed by
+   tree in index.json) and correct tree shapes and the scene from them.
+2. Path junctions: one shared pad per crossing (see Backlog).
+3. The deferred building rework.
+4. Visit notes (docs/VISIT_CHECKLIST.md).
