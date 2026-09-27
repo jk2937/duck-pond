@@ -5,6 +5,6 @@ return {
 	inventoryOnly = 877,
 	lidarOnly = 246,
 	removed = 51,
-	photoTrees = 299,
-	photos = 389,
+	photoTrees = 890,
+	photos = 1081,
 }
