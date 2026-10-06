@@ -1,0 +1,11 @@
+# Duck Pond sugar maple materials (textures CC0: ambientCG Bark001, LeafSet027)
+newmtl bark
+Kd 1 1 1
+map_Kd textures/sugar_maple_bark_color.png
+norm textures/sugar_maple_bark_normal.png
+map_Bump textures/sugar_maple_bark_normal.png
+
+newmtl leaves
+Kd 1 1 1
+map_Kd textures/sugar_maple_leaves_color.png
+map_d textures/sugar_maple_leaves_alpha.png

@@ -18,6 +18,11 @@ local ServerStorage = game:GetService("ServerStorage")
 
 local Trees = {}
 
+-- Realistic models, where they exist (see TreeModels).
+-- (A fresh copy, like every builder's data: require caches, and the models
+-- may have been imported since the last run.)
+local TreeModels = require(ServerStorage:WaitForChild("Builders"):WaitForChild("TreeModels"):Clone())
+
 local BARK = Color3.fromRGB(88, 72, 58)
 local WILLOW_BARK = Color3.fromRGB(104, 94, 78)
 local LEAVES = {
@@ -309,6 +314,15 @@ function Trees.build()
 						break
 					end
 				end
+			end
+			-- A realistic model for this very tree, if it has one (and the models
+			-- and their textures are in the place): that, not the block tree.
+			local entry = TreeModels.lookup(x, z, species)
+			if entry then
+				TreeModels.place(folder, entry, x, groundY(x, z, y), z)
+				counts.model = (counts.model or 0) + 1
+				n += 1
+				continue
 			end
 			local model = Instance.new("Model")
 			model.Name = if species then string.gsub(species, "_", " ") else kind

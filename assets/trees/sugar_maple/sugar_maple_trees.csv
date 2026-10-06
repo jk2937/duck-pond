@@ -1,0 +1,11 @@
+file,tier,tree_id,common_name,scientific_name,latitude,longitude,inventory_height_m,inventory_height_studs,model_height_studs,dbh_cm,tris_trunk,tris_branches,tris_leaves,tris_total,shape_from_scan
+sugar_maple_1,standard,ACSA2-998,sugar maple,Acer saccharum,37.22438174,-80.42915365,6.4,22.9,26.14,20.3,138,307,1480,1925,TreeML 2023-01-12_29_000038
+sugar_maple_1_hero,hero,ACSA2-998,sugar maple,Acer saccharum,37.22438174,-80.42915365,6.4,22.9,26.23,20.3,255,1094,3400,4749,TreeML 2023-01-12_29_000038
+sugar_maple_2,standard,ACSA2-999,sugar maple,Acer saccharum,37.22444724,-80.42909596,5.49,19.6,22.33,27.9,158,286,1480,1924,TreeML 2023-01-09_17_2_18_000059
+sugar_maple_2_hero,hero,ACSA2-999,sugar maple,Acer saccharum,37.22444724,-80.42909596,5.49,19.6,22.49,27.9,290,966,3400,4656,TreeML 2023-01-09_17_2_18_000059
+sugar_maple_3,standard,ACSA2-1029,sugar maple,Acer saccharum,37.22464876,-80.42956916,13.41,47.9,48.06,55.9,142,278,1480,1900,TreeML 2023-01-12_29_000080
+sugar_maple_3_hero,hero,ACSA2-1029,sugar maple,Acer saccharum,37.22464876,-80.42956916,13.41,47.9,47.41,55.9,290,1102,3400,4792,TreeML 2023-01-12_29_000080
+sugar_maple_4,standard,ACSA2-1044,sugar maple,Acer saccharum,37.22425518,-80.42933497,10.36,37.0,39.49,33.0,147,284,1480,1911,TreeML 2023-01-12_29_000065
+sugar_maple_4_hero,hero,ACSA2-1044,sugar maple,Acer saccharum,37.22425518,-80.42933497,10.36,37.0,40.74,33.0,285,1037,3400,4722,TreeML 2023-01-12_29_000065
+sugar_maple_5,standard,ACSA2-4511,sugar maple,Acer saccharum,37.22764296,-80.42512641,12.8,45.7,46.41,30.5,146,292,1480,1918,TreeML 2023-01-16_12_000013
+sugar_maple_5_hero,hero,ACSA2-4511,sugar maple,Acer saccharum,37.22764296,-80.42512641,12.8,45.7,46.86,30.5,312,1072,3400,4784,TreeML 2023-01-16_12_000013
